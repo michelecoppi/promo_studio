@@ -2,7 +2,7 @@
   "video": {
     "hook_who_is": ["¿LO ADIVINAS", "ANTES DEL", "ÚLTIMO CLUB?"],
     "hook_who_is_sub": "{n} clubes · 1 jugador",
-    "hook_percent_low": ["SOLO EL {p}%", "LO", "ADIVINÓ"],
+    "hook_percent_low": ["SOLO EL {p}%", "LO HA", "ADIVINADO"],
     "hook_percent_high": ["EL {p}%", "LO ADIVINÓ", "¿Y TÚ?"],
     "hook_percent_sub": "{n} clubes · 1 jugador",
     "hook_journeyman": ["{n} CLUBES", "EN UNA SOLA", "CARRERA"],
