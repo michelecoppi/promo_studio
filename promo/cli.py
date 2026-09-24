@@ -204,31 +204,22 @@ def cmd_report(args, settings) -> int:
 
 
 def cmd_doctor(args, settings) -> int:
-    print(repr(settings))
-    problems = []
+    from promo import status
+
+    game_source, game_error = None, None
     try:
         game_source = _game(settings)
-        missing = promo_copy.check_sources(game_source.campaign_sources())
-        for channel in missing:
-            problems.append(
-                f"il canale {channel!r} usa src_{promo_copy.SOURCE_FOR_CHANNEL[channel]}, che il bot non conosce ancora: "
-                "verra' contato come 'other' (aggiungilo a CAMPAIGN_SOURCES nel gioco)"
-            )
-        if not game_source.title_font_path():
-            problems.append("font Barlow Condensed non trovato nel repository del gioco: uso il ripiego")
     except Exception as e:
-        problems.append(f"repository del gioco non disponibile: {e}")
-    try:
-        from promo.render.engine import ffmpeg_exe
-        ffmpeg_exe()
-    except Exception as e:
-        problems.append(f"ffmpeg non disponibile: {e}")
-    if settings.enabled and "it" in settings.telegram_languages and not settings.telegram_channel_id:
-        problems.append("PROMO_TELEGRAM_CHANNEL_ID mancante: i post per il canale Telegram falliranno")
-    for problem in problems:
-        print("- " + problem)
-    print("ok" if not problems else f"{len(problems)} avvisi")
-    return 0
+        game_error = str(e)
+    icons = {status.OK: "OK  ", status.WARN: "WARN", status.ERROR: "ERR ", status.OFF: "off "}
+    results = status.checks(settings, game_source, game_error)
+    for check in results:
+        print(f"[{icons[check.level]}] {check.area}: {check.name} - {check.detail}")
+        if check.fix and check.level in (status.WARN, status.ERROR):
+            print(f"         -> {check.fix}")
+    counts = status.summary(results)
+    print(f"\n{counts['ok']} ok, {counts['warn']} da sistemare, {counts['error']} errori, {counts['off']} spenti")
+    return 1 if counts["error"] else 0
 
 
 # ---------------------------------------------------------------------------------------

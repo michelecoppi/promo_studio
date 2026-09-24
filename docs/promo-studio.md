@@ -14,6 +14,7 @@ pubblica niente che non sia `approved`.
 - [Uso quotidiano](#uso-quotidiano)
 - [Formati video](#formati-video)
 - [Regola anti-spoiler](#regola-anti-spoiler)
+- [Dashboard](#dashboard)
 - [Coda e approvazione](#coda-e-approvazione)
 - [Pubblicazione](#pubblicazione)
 - [Report settimanale](#report-settimanale)
@@ -135,6 +136,22 @@ finto che restituisce *di proposito* anche la sfida di oggi, quella di domani e 
 
 Criteri di scelta: popolarità 2-4 preferita a 5, 6-12 tappe, per EN/ES percorsi con Premier League,
 LaLiga, Liga Profesional (Argentina) o Liga MX; giocatori usati negli ultimi 30 giorni esclusi.
+
+## Dashboard
+
+`streamlit run admin/app.py` (dopo `pip install -r requirements-admin.txt`). Si apre anche se il gioco o
+Firestore non sono raggiungibili, e in quel caso dice cosa manca. Schede:
+
+| Scheda | Cosa c'è |
+| --- | --- |
+| 🏠 **Stato** | interruttore acceso/spento, numeri della coda, **cosa aspetta te** (bozze scadute, pubblicazioni fallite con il motivo), prossimi lavori pianificati con il conto alla rovescia, prossime uscite approvate, controlli di configurazione con le istruzioni per sistemarli, attività recente |
+| 📝 **Coda** | filtri per giorno, lingua, canale, stato; per ogni post anteprima video (o rigenerazione), didascalia/hashtag/commento modificabili, **Approva**, **Rifiuta** con motivo, storico; "approva tutte le bozze visibili" |
+| 🎬 **Genera** | un video a mano (formato, lingua, scelta automatica / giornata chiusa / pool riservato), anteprima, testi da copiare, download MP4, **metti in coda come bozza** |
+| 📤 **Pubblica** | cosa esce alla prossima pubblicazione e più tardi, **Simula (dry-run)**, **Pubblica ora** con conferma |
+| 📊 **Pubblicati e report** | contenuti usciti (grafico 30 giorni, link), report settimanale (generazione e archivio), **editor dei costi** per canale |
+| 📖 **Guida** | come funziona, configurazione passo per passo con lo stato di ogni passo, comandi utili |
+
+`python -m promo doctor` mostra gli stessi controlli della scheda Stato (`promo/status.py`).
 
 ## Coda e approvazione
 

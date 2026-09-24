@@ -12,6 +12,9 @@ pip install -r requirements-dev.txt
 export GAME_REPO_PATH=../guess_the_player_from_the_path   # checkout del gioco
 pip install -r "$GAME_REPO_PATH/requirements.txt"
 python -m promo render --format who_is --lang it --day 2026-09-10
+
+pip install -r requirements-admin.txt
+streamlit run admin/app.py        # dashboard: stato, coda, genera, pubblica, report, guida
 ```
 
 Licenza: PolyForm Noncommercial 1.0.0 (vedi `LICENSE`).
