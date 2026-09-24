@@ -97,8 +97,9 @@ python -m promo report                 # reports/promo-report-<inizio>.md
 python -m promo brief --lang it        # testo per un creator pagato, con #adv (da copiare a mano)
 ```
 
-Senza Firestore si può provare tutto con `PROMO_STORE=local` (coda in `promo_posts.json`), usando
-`--pool-player` per i video.
+Senza Firestore si può provare tutto con `PROMO_OFFLINE=true` e `PROMO_STORE=local` (solo pool riservato,
+coda in `promo_posts.json`): vedi [`demo-setup.md`](demo-setup.md). `publish --id <id> --now` pubblica
+subito un singolo post approvato, senza aspettare le 12:00.
 
 ## Formati video
 

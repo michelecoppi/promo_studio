@@ -242,3 +242,15 @@ def test_chunk_plan():
     assert count == size // chunk and size - (count - 1) * chunk <= 2 * 64 * 1024 * 1024
     with pytest.raises(ValueError):
         chunk_plan(0)
+
+
+def test_ignore_schedule_only_for_a_single_post(tmp_path):
+    store, session = MemoryStore(), telegram_session()
+    pid = approved_post(store, tmp_path)
+    store.update(pid, {"scheduled_for": "2099-01-01T10:00:00Z"})
+    publishers = {"telegram_channel": TelegramChannelPublisher(TOKEN, "@c", session)}
+    with pytest.raises(ValueError):
+        plan.publish_due(store, publishers, None, settings(tmp_path), ignore_schedule=True, now=NOW)
+    assert plan.publish_due(store, publishers, None, settings(tmp_path), now=NOW) == ["niente da pubblicare"]
+    plan.publish_due(store, publishers, None, settings(tmp_path), only_id=pid, ignore_schedule=True, now=NOW)
+    assert store.get(pid)["status"] == "published"

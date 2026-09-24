@@ -5,6 +5,7 @@ Strumento che prepara (e, dopo l'approvazione di una persona, pubblica) i conten
 in italiano, inglese e spagnolo, più un report settimanale sui canali che portano giocatori.
 
 **La macchina prepara, la persona approva.** Documentazione completa: [`docs/promo-studio.md`](docs/promo-studio.md).
+Demo passo per passo (anche senza credenziali): [`docs/demo-setup.md`](docs/demo-setup.md).
 
 ```bash
 python -m venv .venv && . .venv/bin/activate

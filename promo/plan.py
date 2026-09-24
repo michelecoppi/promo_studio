@@ -219,7 +219,10 @@ def _lock_free(post: dict, now: datetime) -> bool:
 
 
 def publish_due(store: PostStore, publishers: dict, theme, settings, *, dry_run: bool = False,
-                only_id: Optional[str] = None, now: Optional[datetime] = None) -> list:
+                only_id: Optional[str] = None, now: Optional[datetime] = None, ignore_schedule: bool = False) -> list:
+    """`ignore_schedule` vale solo con `only_id`: un singolo post approvato, pubblicato subito."""
+    if ignore_schedule and not only_id:
+        raise ValueError("ignorare l'orario si puo' solo per un post preciso (--id)")
     now = now or datetime.now(timezone.utc)
     now_s = now_iso(now)
     lines = []
@@ -229,7 +232,7 @@ def publish_due(store: PostStore, publishers: dict, theme, settings, *, dry_run:
     for post in sorted(candidates, key=lambda p: (p.get("scheduled_for") or "", p["id"])):
         if only_id and post["id"] != only_id:
             continue
-        if not _due(post, now_s):
+        if not _due(post, now_s) and not ignore_schedule:
             continue
         if post.get("external_id"):
             # Gia' uscito (per esempio: pubblicato, poi l'aggiornamento di stato e' fallito).

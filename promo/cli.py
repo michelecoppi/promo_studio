@@ -175,7 +175,7 @@ def cmd_publish(args, settings) -> int:
     game_source = _game(settings)
     results = plan.publish_due(
         _store(settings), build_publishers(settings), _theme(game_source), settings,
-        dry_run=args.dry_run, only_id=args.id or None,
+        dry_run=args.dry_run, only_id=args.id or None, ignore_schedule=args.now,
     )
     for line in results:
         print(line)
@@ -277,6 +277,8 @@ def parser() -> argparse.ArgumentParser:
     p = sub.add_parser("publish", help="pubblica gli approved in scadenza")
     p.add_argument("--dry-run", action="store_true", help="fa tutto tranne la chiamata esterna")
     p.add_argument("--id", help="solo questo post")
+    p.add_argument("--now", action="store_true",
+                   help="con --id: pubblica subito anche se l'orario di uscita non e' ancora arrivato")
     p.add_argument("--at-rome-hour", default="")
     p.set_defaults(func=cmd_publish)
 
