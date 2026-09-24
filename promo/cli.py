@@ -93,7 +93,7 @@ def cmd_render(args, settings) -> int:
         f"--- link tracciato ---\n{texts.tracking_link}\n",
         encoding="utf-8",
     )
-    print(f"video:     {result.video_path} ({result.duration:.1f} s, generato in {result.extra['seconds']} s)")
+    print(f"video:     {result.video_path} ({result.duration:.1f} s, generato in {result.extra.get('seconds', '?')} s)")
     print(f"copertina: {result.cover_path}")
     print(f"testi:     {base.with_suffix('.txt')}")
     return 0
@@ -310,7 +310,8 @@ def main(argv=None) -> int:
     except Exception as e:  # messaggio leggibile e senza segreti, non un traceback
         from promo.game import GameUnavailable
         from promo.picker import NoMaterial, SpoilerError
-        if isinstance(e, (GameUnavailable, NoMaterial, SpoilerError, ValueError, KeyError)):
+        from promo.store import NotFound
+        if isinstance(e, (GameUnavailable, NoMaterial, SpoilerError, ValueError, NotFound)):
             print(f"errore: {log.scrub(e)}", file=sys.stderr)
             return 2
         raise

@@ -1,0 +1,109 @@
+# Pianificazione del Promo Studio (§5.7). Orari in Europe/Rome:
+#   ogni giorno 07:00  bozze del giorno (poi le approva una persona)
+#   ogni giorno 12:00  pubblicazione degli approvati
+#   venerdi'    09:00  report settimanale
+# GitHub usa cron in UTC e non conosce l'ora legale: ogni lavoro ha due cron (CEST e CET) e la
+# CLI decide con --at-rome-hour. I lavori sono idempotenti, quindi un doppio avvio non fa danni.
+# Niente gira senza PROMO_ENABLED=true (variabile del repository).
+name: Promo
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 07:00 CEST
+    - cron: "0 6 * * *"   # 07:00 CET
+    - cron: "0 10 * * *"  # 12:00 CEST
+    - cron: "0 11 * * *"  # 12:00 CET
+    - cron: "0 7 * * 5"   # 09:00 CEST, venerdi'
+    - cron: "0 8 * * 5"   # 09:00 CET, venerdi'
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "drafts | publish | report"
+        required: true
+        default: drafts
+      dry_run:
+        description: "--dry-run"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write  # Workload Identity Federation verso Google Cloud (Firestore, Secret Manager)
+
+concurrency:
+  group: promo
+  cancel-in-progress: false
+
+env:
+  PROMO_ENABLED: ${{ vars.PROMO_ENABLED }}
+  PROMO_LANGUAGES: ${{ vars.PROMO_LANGUAGES }}
+  PROMO_TELEGRAM_LANGUAGES: ${{ vars.PROMO_TELEGRAM_LANGUAGES }}
+  PROMO_MEDIA_DIR: promo-media
+  GAME_REPO_PATH: ${{ github.workspace }}/game
+
+jobs:
+  promo:
+    # Mai sui fork: i segreti non ci sono e i cron partirebbero comunque.
+    if: github.repository == 'michelecoppi/promo_studio'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Quale lavoro
+        id: job
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 5 * * *"|"0 6 * * *")   echo "command=drafts"  >> "$GITHUB_OUTPUT"; echo "hours=7,8"  >> "$GITHUB_OUTPUT" ;;
+            "0 10 * * *"|"0 11 * * *") echo "command=publish" >> "$GITHUB_OUTPUT"; echo "hours=12,13" >> "$GITHUB_OUTPUT" ;;
+            "0 7 * * 5"|"0 8 * * 5")   echo "command=report"  >> "$GITHUB_OUTPUT"; echo "hours=9"    >> "$GITHUB_OUTPUT" ;;
+            *) echo "command=${{ inputs.command }}" >> "$GITHUB_OUTPUT"; echo "hours=" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: michelecoppi/guess_the_player_from_the_path
+          path: game
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: sudo apt-get install -y --no-install-recommends fonts-dejavu-core
+      - run: pip install -r requirements.txt -r game/requirements.txt
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Bozze del giorno
+        if: steps.job.outputs.command == 'drafts'
+        run: python -m promo drafts --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Pubblicazione degli approvati
+        if: steps.job.outputs.command == 'publish'
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          PROMO_TELEGRAM_CHANNEL_ID: ${{ vars.PROMO_TELEGRAM_CHANNEL_ID }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_SECRET: ${{ vars.TIKTOK_REFRESH_TOKEN_SECRET }}
+        run: python -m promo publish --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Report settimanale
+        if: steps.job.outputs.command == 'report'
+        env:
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          PROMO_ADMIN_CHAT_ID: ${{ vars.PROMO_ADMIN_CHAT_ID }}
+        run: python -m promo report --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ vars.PROMO_ADMIN_CHAT_ID && '--notify' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: promo-${{ steps.job.outputs.command }}-${{ github.run_id }}
+          path: |
+            promo-media/
+            reports/
+          if-no-files-found: ignore
+          retention-days: 14

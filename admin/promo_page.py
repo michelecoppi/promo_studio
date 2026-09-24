@@ -131,5 +131,5 @@ def render_page(store, theme, settings):
             "approvato da": p.get("approved_by"), "link": p.get("external_url") or p.get("external_id"),
         } for p in published],
         column_config={"link": st.column_config.LinkColumn("link")},
-        use_container_width=True,
+        width="stretch",
     )

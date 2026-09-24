@@ -46,7 +46,7 @@ class Settings:
     store: str = "firestore"
     local_store_path: Path = Path("promo_posts.json")
     media_dir: Path = Path("promo-media")
-    costs_file: Path = Path("promo_costs.json")
+    costs_file: Path = Path("costs.json")
     reports_dir: Path = Path("reports")
     extra: dict = field(default_factory=dict)
 
@@ -71,7 +71,7 @@ class Settings:
             store=(env.get("PROMO_STORE") or "firestore").strip().lower(),
             local_store_path=Path(env.get("PROMO_LOCAL_STORE") or "promo_posts.json"),
             media_dir=Path(env.get("PROMO_MEDIA_DIR") or "promo-media"),
-            costs_file=Path(env.get("PROMO_COSTS_FILE") or "promo_costs.json"),
+            costs_file=Path(env.get("PROMO_COSTS_FILE") or "costs.json"),
             reports_dir=Path(env.get("PROMO_REPORTS_DIR") or "reports"),
         )
 
