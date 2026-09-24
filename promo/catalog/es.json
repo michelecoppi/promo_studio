@@ -1,0 +1,52 @@
+{
+  "video": {
+    "hook_who_is": ["¿LO ADIVINAS", "ANTES DEL", "ÚLTIMO CLUB?"],
+    "hook_who_is_sub": "{n} clubes · 1 jugador",
+    "hook_percent_low": ["SOLO EL {p}%", "LO", "ADIVINÓ"],
+    "hook_percent_high": ["EL {p}%", "LO ADIVINÓ", "¿Y TÚ?"],
+    "hook_percent_sub": "{n} clubes · 1 jugador",
+    "hook_journeyman": ["{n} CLUBES", "EN UNA SOLA", "CARRERA"],
+    "hook_journeyman_sub": "¿Quién es este trotamundos?",
+    "hook_ladder": ["4 CARRERAS", "DE FÁCIL", "A IMPOSIBLE"],
+    "hook_ladder_sub": "¿Hasta dónde llegas?",
+    "who_title": "¿QUIÉN ES?",
+    "stop_counter": "Etapa {i} de {n}",
+    "last_stop": "Última etapa. ¿Lo tienes?",
+    "attempts": "TIENES 3 INTENTOS",
+    "write_comments": "Escríbelo en los comentarios",
+    "solution_tomorrow": "Solución mañana en el comentario fijado",
+    "ladder_level": "Nivel {i} de {n}",
+    "ladder_bands": {"easy": "FÁCIL", "medium": "MEDIO", "hard": "DIFÍCIL", "impossible": "IMPOSIBLE"},
+    "ladder_outro": "¿CUÁNTOS ACERTASTE?",
+    "ladder_outro_sub": "Respuestas en el comentario fijado",
+    "solution_title": "SOLUCIÓN",
+    "solution_sub": "La carrera de ayer",
+    "solution_was": "ERA",
+    "solution_percent": "Lo adivinó el {p}%",
+    "end_1": "CADA DÍA",
+    "end_2": "UN JUGADOR NUEVO",
+    "end_sub": "3 intentos · clasificación · reta a tus amigos",
+    "cta": "JUEGA EN TELEGRAM",
+    "link_in_bio": "Link en la bio"
+  },
+  "copy": {
+    "captions": {
+      "who_is": ["¿Lo adivinas antes del último club? 👀 {n} clubes, 1 jugador. ¡Escríbelo en los comentarios!",
+                 "{n} etapas, un solo nombre. ¿Quién es? ⚽ Solución mañana en el comentario fijado."],
+      "percent": ["Solo el {p}% lo adivinó. ¿Y tú? 🤔 ¡Escríbelo en los comentarios!",
+                  "El {p}% de los jugadores lo acertó. ¿Y tú? ⚽ Solución mañana."],
+      "journeyman": ["{n} clubes en una carrera. ¿Quién es este trotamundos? 🌍 ¡Comenta tu respuesta!"],
+      "ladder": ["4 carreras, de fácil a imposible. ¿Hasta dónde llegas? 🧠 ¡Comenta tus 4 nombres!"],
+      "solution": ["La solución de ayer: ¡era {name}! ✅ ¿Lo acertaste? Hoy hay una carrera nueva."]
+    },
+    "hashtags": {
+      "base": ["#fútbol", "#quizdefutbol", "#adivinaeljugador"],
+      "extra": ["#laliga", "#futbol", "#ligamx"]
+    },
+    "pinned_comment": "✅ Solución: {name}. Cada día un jugador nuevo: juega en Telegram {link}",
+    "pinned_comment_ladder": "✅ Soluciones: {names}. Cada día un jugador nuevo: juega en Telegram {link}",
+    "pinned_comment_solution": "Juega el reto de hoy en Telegram: {link}",
+    "sponsored": "#publicidad",
+    "brief": "¡Hola! Te proponemos una colaboración pagada para Guess the Player from the Path, un juego gratuito en Telegram: cada día una carrera, 3 intentos para adivinar el jugador.\n\nIdea de contenido: muestra la carrera club por club y reta a tu audiencia a adivinar en los comentarios.\nEnlace a usar: {link}\nLa publicación debe declararse como patrocinada: {sponsored} #patrocinado"
+  }
+}

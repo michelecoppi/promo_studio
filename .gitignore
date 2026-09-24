@@ -1,0 +1,15 @@
+.env
+*.json.key
+firebase-key.json
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+# Video, copertine e testi generati: si rigenerano in modo deterministico.
+out/
+promo-media/
+# Coda locale (PROMO_STORE=local) e costi: dati operativi, non codice.
+promo_posts.json
+promo_costs.json
+reports/

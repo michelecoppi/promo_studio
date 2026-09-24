@@ -1,0 +1,7 @@
+# Dipendenze proprie del Promo Studio. Quelle del gioco (firebase-admin, ecc.) si installano
+# dal suo repository: pip install -r "$GAME_REPO_PATH/requirements.txt" (vedi docs/promo-studio.md).
+Pillow==12.3.0
+imageio-ffmpeg==0.6.0
+requests==2.34.2
+python-dotenv==1.0.1
+tzdata==2024.1

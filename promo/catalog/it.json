@@ -1,0 +1,52 @@
+{
+  "video": {
+    "hook_who_is": ["LO RICONOSCI", "PRIMA DELL'ULTIMA", "SQUADRA?"],
+    "hook_who_is_sub": "{n} club · 1 calciatore",
+    "hook_percent_low": ["SOLO IL {p}%", "L'HA", "INDOVINATO"],
+    "hook_percent_high": ["IL {p}%", "L'HA INDOVINATO", "E TU?"],
+    "hook_percent_sub": "{n} club · 1 calciatore",
+    "hook_journeyman": ["{n} CLUB", "IN UNA SOLA", "CARRIERA"],
+    "hook_journeyman_sub": "Chi è questo giramondo?",
+    "hook_ladder": ["4 PERCORSI", "DA FACILE", "A IMPOSSIBILE"],
+    "hook_ladder_sub": "Fin dove arrivi?",
+    "who_title": "CHI È?",
+    "stop_counter": "Tappa {i} di {n}",
+    "last_stop": "Ultima tappa. Ci sei?",
+    "attempts": "HAI 3 TENTATIVI",
+    "write_comments": "Scrivilo nei commenti",
+    "solution_tomorrow": "Soluzione domani nel commento fissato",
+    "ladder_level": "Livello {i} di {n}",
+    "ladder_bands": {"easy": "FACILE", "medium": "MEDIO", "hard": "DIFFICILE", "impossible": "IMPOSSIBILE"},
+    "ladder_outro": "QUANTI NE HAI PRESI?",
+    "ladder_outro_sub": "Risposte nel commento fissato",
+    "solution_title": "SOLUZIONE",
+    "solution_sub": "Il percorso di ieri",
+    "solution_was": "ERA",
+    "solution_percent": "L'ha indovinato il {p}%",
+    "end_1": "OGNI GIORNO",
+    "end_2": "UN CALCIATORE NUOVO",
+    "end_sub": "3 tentativi · classifica · sfide con gli amici",
+    "cta": "GIOCA SU TELEGRAM",
+    "link_in_bio": "Link in bio"
+  },
+  "copy": {
+    "captions": {
+      "who_is": ["Lo riconosci prima dell'ultima squadra? 👀 {n} club, 1 calciatore. Scrivilo nei commenti!",
+                 "{n} tappe, un solo nome. Chi è? ⚽ Soluzione domani nel commento fissato."],
+      "percent": ["Solo il {p}% l'ha indovinato. Tu ce la fai? 🤔 Scrivilo nei commenti!",
+                  "Il {p}% dei giocatori l'ha preso. E tu? ⚽ Soluzione domani."],
+      "journeyman": ["{n} club in una carriera. Chi è questo giramondo? 🌍 Scrivilo nei commenti!"],
+      "ladder": ["4 percorsi, da facile a impossibile. Fin dove arrivi? 🧠 Scrivi i tuoi 4 nomi!"],
+      "solution": ["Soluzione di ieri: era {name}! ✅ Tu l'avevi preso? Oggi c'è un percorso nuovo."]
+    },
+    "hashtags": {
+      "base": ["#calcio", "#indovinailcalciatore", "#quizcalcio"],
+      "extra": ["#seriea", "#football", "#calciomercato"]
+    },
+    "pinned_comment": "✅ Soluzione: {name}. Ogni giorno un calciatore nuovo: gioca su Telegram {link}",
+    "pinned_comment_ladder": "✅ Soluzioni: {names}. Ogni giorno un calciatore nuovo: gioca su Telegram {link}",
+    "pinned_comment_solution": "Gioca la sfida di oggi su Telegram: {link}",
+    "sponsored": "#adv",
+    "brief": "Ciao! Ti proponiamo una collaborazione retribuita per Guess the Player from the Path, un gioco gratuito su Telegram: ogni giorno un percorso di carriera, 3 tentativi per indovinare il calciatore.\n\nIdea di contenuto: mostra il percorso tappa per tappa e sfida il tuo pubblico a indovinare nei commenti.\nLink da usare: {link}\nIl post va dichiarato come sponsorizzato: {sponsored} #sponsorizzato"
+  }
+}

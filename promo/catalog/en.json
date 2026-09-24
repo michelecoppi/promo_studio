@@ -1,0 +1,52 @@
+{
+  "video": {
+    "hook_who_is": ["CAN YOU GET HIM", "BEFORE THE", "LAST CLUB?"],
+    "hook_who_is_sub": "{n} clubs · 1 player",
+    "hook_percent_low": ["ONLY {p}%", "GOT THIS", "ONE RIGHT"],
+    "hook_percent_high": ["{p}%", "GOT IT RIGHT", "CAN YOU?"],
+    "hook_percent_sub": "{n} clubs · 1 player",
+    "hook_journeyman": ["{n} CLUBS", "IN ONE", "CAREER"],
+    "hook_journeyman_sub": "Who is this journeyman?",
+    "hook_ladder": ["4 CAREERS", "FROM EASY", "TO IMPOSSIBLE"],
+    "hook_ladder_sub": "How far can you go?",
+    "who_title": "WHO IS IT?",
+    "stop_counter": "Stop {i} of {n}",
+    "last_stop": "Last stop. Got him?",
+    "attempts": "YOU HAVE 3 GUESSES",
+    "write_comments": "Drop it in the comments",
+    "solution_tomorrow": "Answer tomorrow in the pinned comment",
+    "ladder_level": "Level {i} of {n}",
+    "ladder_bands": {"easy": "EASY", "medium": "MEDIUM", "hard": "HARD", "impossible": "IMPOSSIBLE"},
+    "ladder_outro": "HOW MANY DID YOU GET?",
+    "ladder_outro_sub": "Answers in the pinned comment",
+    "solution_title": "ANSWER",
+    "solution_sub": "Yesterday's career path",
+    "solution_was": "IT WAS",
+    "solution_percent": "{p}% got it right",
+    "end_1": "EVERY DAY",
+    "end_2": "A NEW PLAYER",
+    "end_sub": "3 guesses · leaderboard · challenge your friends",
+    "cta": "PLAY ON TELEGRAM",
+    "link_in_bio": "Link in bio"
+  },
+  "copy": {
+    "captions": {
+      "who_is": ["Can you name him before the last club? 👀 {n} clubs, 1 player. Drop it in the comments!",
+                 "{n} stops, one name. Who is it? ⚽ Answer tomorrow in the pinned comment."],
+      "percent": ["Only {p}% got this one. Can you? 🤔 Drop your guess below!",
+                  "{p}% of players got it right. What about you? ⚽ Answer tomorrow."],
+      "journeyman": ["{n} clubs in one career. Who is this journeyman? 🌍 Comment your guess!"],
+      "ladder": ["4 careers, from easy to impossible. How far can you go? 🧠 Comment your 4 names!"],
+      "solution": ["Yesterday's answer: {name}! ✅ Did you get it? A new career drops today."]
+    },
+    "hashtags": {
+      "base": ["#football", "#footballquiz", "#guesstheplayer"],
+      "extra": ["#premierleague", "#soccer", "#footballtiktok"]
+    },
+    "pinned_comment": "✅ Answer: {name}. A new player every day: play on Telegram {link}",
+    "pinned_comment_ladder": "✅ Answers: {names}. A new player every day: play on Telegram {link}",
+    "pinned_comment_solution": "Play today's challenge on Telegram: {link}",
+    "sponsored": "#ad",
+    "brief": "Hi! We'd like to offer you a paid collaboration for Guess the Player from the Path, a free Telegram game: a new career path every day, 3 guesses to name the player.\n\nContent idea: reveal the path club by club and challenge your audience to guess in the comments.\nLink to use: {link}\nThe post must be disclosed as sponsored: {sponsored} #sponsored"
+  }
+}
