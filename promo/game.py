@@ -71,7 +71,10 @@ class GameSource(Protocol):
 class GameRepo:
     """Il gioco vero, importato da `GAME_REPO_PATH`."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, offline: bool = False):
+        # Offline: niente Firestore. Solo dataset locale e pool riservato (practice_only), che
+        # non spoilera per costruzione: serve per demo e prove senza credenziali.
+        self.offline = offline
         if not path:
             raise GameUnavailable(
                 "GAME_REPO_PATH non impostato: serve una checkout di guess_the_player_from_the_path."
@@ -116,12 +119,18 @@ class GameRepo:
         return firebase_service
 
     def past_challenges(self, before_day: str, limit: int) -> list:
+        if self.offline:
+            return []
         return self._fs().get_past_daily_paths(limit=limit, before_day_iso=before_day)
 
     def challenge(self, day: str) -> Optional[dict]:
+        if self.offline:
+            return None
         return self._fs().get_daily_path(day)
 
     def firestore_db(self):
+        if self.offline:
+            raise GameUnavailable("PROMO_OFFLINE=true: Firestore disattivato, usa PROMO_STORE=local")
         return self._fs().db
 
     # --- dataset ----------------------------------------------------------------------
@@ -187,8 +196,10 @@ class AnalyticsError(RuntimeError):
 _default: Optional[GameSource] = None
 
 
-def default(path: Optional[str] = None) -> GameSource:
+def default(path: Optional[str] = None, offline: Optional[bool] = None) -> GameSource:
     global _default
     if _default is None:
-        _default = GameRepo(path or os.environ.get("GAME_REPO_PATH", ""))
+        if offline is None:
+            offline = (os.environ.get("PROMO_OFFLINE") or "").strip().lower() in {"1", "true", "yes", "on"}
+        _default = GameRepo(path or os.environ.get("GAME_REPO_PATH", ""), offline=offline)
     return _default

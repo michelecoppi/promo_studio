@@ -111,3 +111,16 @@ def test_no_material_raises():
     game = FakeGame(players=[], challenges=[])
     with pytest.raises(picker.NoMaterial):
         picker.pick(game, "who_is", "it")
+
+
+def test_offline_game_repo_uses_only_reserved_pool(tmp_path):
+    from promo.game import GameRepo, GameUnavailable
+
+    services = tmp_path / "services"
+    services.mkdir()
+    (services / "player_pool.py").write_text("")
+    repo = GameRepo.__new__(GameRepo)
+    repo.offline = True
+    assert repo.past_challenges("2026-09-24", 10) == [] and repo.challenge("2026-09-10") is None
+    with pytest.raises(GameUnavailable):
+        repo.firestore_db()

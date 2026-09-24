@@ -39,6 +39,10 @@ def checks(settings, game_source=None, game_error: Optional[str] = None) -> list
                          "GAME_REPO_PATH = percorso della checkout di guess_the_player_from_the_path"))
     else:
         out.append(Check("Gioco", "Repository del gioco", OK, str(getattr(game_source, "path", "configurato"))))
+        if getattr(game_source, "offline", False):
+            out.append(Check("Gioco", "Modalità offline", WARN,
+                             "PROMO_OFFLINE=true: niente Firestore, solo pool riservato (demo)",
+                             "togli PROMO_OFFLINE per usare le sfide vere e la coda su Firestore"))
         font = game_source.title_font_path()
         out.append(Check("Gioco", "Font Barlow Condensed", OK if font else WARN,
                          "trovato" if font else "non trovato: uso il font di ripiego"))
