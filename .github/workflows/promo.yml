@@ -8,13 +8,14 @@
 name: Promo
 
 on:
-  schedule:
-    - cron: "0 5 * * *"   # 07:00 CEST
-    - cron: "0 6 * * *"   # 07:00 CET
-    - cron: "0 10 * * *"  # 12:00 CEST
-    - cron: "0 11 * * *"  # 12:00 CET
-    - cron: "0 7 * * 5"   # 09:00 CEST, venerdi'
-    - cron: "0 8 * * 5"   # 09:00 CET, venerdi'
+  # Pianificazione sospesa: i run fallivano e mandavano mail. Per riattivarla togliere i commenti.
+  # schedule:
+  #   - cron: "0 5 * * *"   # 07:00 CEST
+  #   - cron: "0 6 * * *"   # 07:00 CET
+  #   - cron: "0 10 * * *"  # 12:00 CEST
+  #   - cron: "0 11 * * *"  # 12:00 CET
+  #   - cron: "0 7 * * 5"   # 09:00 CEST, venerdi'
+  #   - cron: "0 8 * * 5"   # 09:00 CET, venerdi'
   workflow_dispatch:
     inputs:
       command:
