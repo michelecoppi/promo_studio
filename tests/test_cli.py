@@ -22,9 +22,9 @@ def env(tmp_path, monkeypatch):
 
 def test_render_writes_video_cover_and_texts(env, capsys):
     assert cli.main(["render", "--format", "who_is", "--lang", "it", "--day", "2026-09-10", "--out", "o"]) == 0
-    data = json.loads((env / "o" / "2026-09-10-who_is-it.json").read_text())
+    data = json.loads((env / "o" / "2026-09-10-who_is-it.json").read_text(encoding="utf-8"))
     assert data["cards"][0]["player_name"] == "Zlatan Ibrahimović"
-    assert (env / "o" / "2026-09-10-who_is-it.txt").read_text().startswith(data["caption"])
+    assert (env / "o" / "2026-09-10-who_is-it.txt").read_text(encoding="utf-8").startswith(data["caption"])
 
 
 def test_render_refuses_spoilers(env, capsys):

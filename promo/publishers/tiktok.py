@@ -88,6 +88,21 @@ class FileTokenStore(TokenStore):
         return True
 
 
+class EnvFileTokenStore(TokenStore):
+    """Il .env locale (TIKTOK_REFRESH_TOKEN): sulla macchina del maintainer il token ruotato si
+    riscrive li', cosi' la dashboard e la CLI continuano a funzionare senza altri file."""
+
+    def __init__(self, path, fallback: str = ""):
+        self.path = Path(path)
+        super().__init__(fallback)
+
+    def save(self, token: str) -> bool:
+        from promo import envfile
+        envfile.update(self.path, {"TIKTOK_REFRESH_TOKEN": token})
+        self._token = token
+        return True
+
+
 class SecretManagerTokenStore(TokenStore):
     """Google Secret Manager (`projects/<p>/secrets/<nome>`): legge l'ultima versione e ne
     aggiunge una nuova quando TikTok ruota il token. Usa le credenziali di default
@@ -255,10 +270,12 @@ def _api_data(response) -> dict:
     return body.get("data") or {}
 
 
-def token_store(settings) -> TokenStore:
+def token_store(settings, env_file=None) -> TokenStore:
     if settings.tiktok_refresh_token_secret:
         return SecretManagerTokenStore(settings.tiktok_refresh_token_secret, settings.tiktok_refresh_token)
     token_file = os.environ.get("PROMO_TIKTOK_TOKEN_FILE")
     if token_file:
         return FileTokenStore(token_file, settings.tiktok_refresh_token)
+    if env_file is not None and Path(env_file).exists():
+        return EnvFileTokenStore(env_file, settings.tiktok_refresh_token)
     return TokenStore(settings.tiktok_refresh_token)

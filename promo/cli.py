@@ -174,11 +174,39 @@ def cmd_publish(args, settings) -> int:
 
     game_source = _game(settings)
     results = plan.publish_due(
-        _store(settings), build_publishers(settings), _theme(game_source), settings,
+        _store(settings), build_publishers(settings, Path(".env")), _theme(game_source), settings,
         dry_run=args.dry_run, only_id=args.id or None, ignore_schedule=args.now,
     )
     for line in results:
         print(line)
+    return 0
+
+
+def cmd_tiktok_auth(args, settings) -> int:
+    """Collega l'account TikTok: link da aprire, indirizzo di ritorno da incollare, token nel .env."""
+    from promo import envfile, tiktok_auth
+    from promo.publishers.tiktok import TikTokError
+
+    if not (settings.tiktok_client_key and settings.tiktok_client_secret):
+        print("errore: prima imposta TIKTOK_CLIENT_KEY e TIKTOK_CLIENT_SECRET (nel .env o nella dashboard)",
+              file=sys.stderr)
+        return 1
+    state = tiktok_auth.new_state()
+    print("1. Apri questo link e fai il login con l'account TikTok del gioco:\n")
+    print(tiktok_auth.authorize_url(settings.tiktok_client_key, settings.tiktok_redirect_uri, state))
+    print(f"\n2. Dopo l'autorizzazione TikTok ti porta su {settings.tiktok_redirect_uri}?code=...")
+    returned = input("   Incolla qui l'indirizzo completo della pagina: ")
+    try:
+        code = tiktok_auth.parse_callback(returned, state)
+        result = tiktok_auth.connect(settings.tiktok_client_key, settings.tiktok_client_secret,
+                                     settings.tiktok_redirect_uri, code)
+    except TikTokError as e:
+        print(f"errore: {log.scrub(e)}", file=sys.stderr)
+        return 1
+    envfile.update(Path(args.env_file), {"TIKTOK_REFRESH_TOKEN": result["refresh_token"],
+                                         "PROMO_TIKTOK_ACCOUNT": result["display_name"] or None})
+    print(f"collegato{' come ' + result['display_name'] if result['display_name'] else ''}: "
+          f"refresh token salvato in {args.env_file}")
     return 0
 
 
@@ -282,6 +310,10 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--at-rome-hour", default="")
     p.set_defaults(func=cmd_publish)
 
+    p = sub.add_parser("tiktok-auth", help="collega l'account TikTok (una volta sola)")
+    p.add_argument("--env-file", default=".env", help="dove salvare il refresh token")
+    p.set_defaults(func=cmd_tiktok_auth)
+
     p = sub.add_parser("report", help="report settimanale")
     p.add_argument("--end", help="ultimo giorno escluso della settimana (default: oggi)")
     p.add_argument("--notify", action="store_true", help="invia il report all'admin su Telegram")
@@ -294,6 +326,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
+    # Console Windows (cp1252): didascalie ed emoji non devono far fallire la stampa.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     log.configure()
     settings = load()
     log.register_secrets(settings.secret_values())

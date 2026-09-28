@@ -32,10 +32,13 @@ def tracking_link(channel: str) -> str:
     return f"https://t.me/{BOT_USERNAME}?start=src_{source}"
 
 
-def check_sources(campaign_sources) -> list:
-    """I canali il cui `src_` il bot non riconosce ancora (verrebbero contati come "other")."""
+def check_sources(campaign_sources, channels=None) -> list:
+    """I canali il cui `src_` il bot non riconosce ancora (verrebbero contati come "other").
+
+    `channels`: solo i canali in uso (default: tutti)."""
     known = set(campaign_sources or ())
-    return sorted(channel for channel, source in SOURCE_FOR_CHANNEL.items() if source not in known)
+    return sorted(channel for channel, source in SOURCE_FOR_CHANNEL.items()
+                  if source not in known and (channels is None or channel in channels))
 
 
 def _fit(text: str, limit: int = MAX_CAPTION) -> str:

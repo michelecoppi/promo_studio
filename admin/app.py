@@ -38,4 +38,4 @@ try:
 except Exception as e:
     store_error = log.scrub(e)
 
-render_page(queue_store, theme, settings, game_source, game_error, store_error)
+render_page(queue_store, theme, settings, game_source, game_error, store_error, env_path=ROOT / ".env")

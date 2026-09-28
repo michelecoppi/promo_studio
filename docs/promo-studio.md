@@ -287,7 +287,7 @@ Tutte le variabili sono in `.env.example` (commentate, senza valori). Le princip
 | --- | --- |
 | `PROMO_ENABLED` | interruttore generale, default off: senza, `drafts` e `publish` non fanno niente |
 | `PROMO_LANGUAGES` | default `it,en,es` |
-| `PROMO_TELEGRAM_LANGUAGES` | lingue pubblicate anche sul canale Telegram (default `it`) |
+| `PROMO_TELEGRAM_LANGUAGES` | lingue pubblicate anche sul canale Telegram (default `it`; `none` lo spegne) |
 | `PROMO_TELEGRAM_CHANNEL_ID` | canale di proprietà |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN` | Content Posting API (segreti) |
 | `TIKTOK_REFRESH_TOKEN_SECRET` / `PROMO_TIKTOK_TOKEN_FILE` | dove salvare il refresh token ruotato |

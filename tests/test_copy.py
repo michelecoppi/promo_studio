@@ -67,3 +67,9 @@ def test_long_caption_is_truncated():
 
 def test_check_sources_flags_unknown_channels():
     assert copy.check_sources(FakeGame().campaign_sources()) == ["telegram_channel"]
+
+
+def test_check_sources_only_for_channels_in_use():
+    from promo import copy as promo_copy
+    assert promo_copy.check_sources(["tiktok"], {"tiktok"}) == []
+    assert promo_copy.check_sources(["tiktok"]) == ["telegram_channel", "x"]

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Mapping, Optional
 
 BOT_USERNAME = "guess_the_player_from_path_bot"
+# Redirect URI registrato nell'app TikTok (Login Kit): dopo il login TikTok rimanda qui con ?code=.
+DEFAULT_TIKTOK_REDIRECT_URI = "https://guess-the-player-595902172561.europe-west1.run.app/privacy"
 LANGUAGES = ("it", "en", "es")
 DEFAULT_LANGUAGES = LANGUAGES
 
@@ -41,6 +43,8 @@ class Settings:
     tiktok_client_secret: str = ""
     tiktok_refresh_token: str = ""
     tiktok_refresh_token_secret: str = ""
+    tiktok_redirect_uri: str = DEFAULT_TIKTOK_REDIRECT_URI
+    tiktok_account: str = ""
     x_enabled: bool = False
     game_repo_path: str = ""
     store: str = "firestore"
@@ -57,7 +61,9 @@ class Settings:
         return cls(
             enabled=_flag(env.get("PROMO_ENABLED")),
             languages=languages or DEFAULT_LANGUAGES,
-            telegram_languages=_csv(env.get("PROMO_TELEGRAM_LANGUAGES"), ("it",)),
+            # "none" spegne il canale Telegram (vuoto = default "it").
+            telegram_languages=(() if (env.get("PROMO_TELEGRAM_LANGUAGES") or "").strip().lower() == "none"
+                                else _csv(env.get("PROMO_TELEGRAM_LANGUAGES"), ("it",))),
             telegram_channel_id=(env.get("PROMO_TELEGRAM_CHANNEL_ID") or "").strip(),
             admin_chat_id=(env.get("PROMO_ADMIN_CHAT_ID") or "").strip(),
             admin_name=(env.get("PROMO_ADMIN_NAME") or "").strip(),
@@ -66,6 +72,8 @@ class Settings:
             tiktok_client_secret=(env.get("TIKTOK_CLIENT_SECRET") or "").strip(),
             tiktok_refresh_token=(env.get("TIKTOK_REFRESH_TOKEN") or "").strip(),
             tiktok_refresh_token_secret=(env.get("TIKTOK_REFRESH_TOKEN_SECRET") or "").strip(),
+            tiktok_redirect_uri=(env.get("TIKTOK_REDIRECT_URI") or "").strip() or DEFAULT_TIKTOK_REDIRECT_URI,
+            tiktok_account=(env.get("PROMO_TIKTOK_ACCOUNT") or "").strip(),
             x_enabled=_flag(env.get("PROMO_X_ENABLED")),
             game_repo_path=(env.get("GAME_REPO_PATH") or "").strip(),
             store=(env.get("PROMO_STORE") or "firestore").strip().lower(),

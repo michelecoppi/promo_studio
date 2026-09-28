@@ -1,10 +1,11 @@
-"""Dashboard del Promo Studio, in Streamlit. Sei schede:
+"""Dashboard del Promo Studio, in Streamlit. Sette schede:
 
 - **Stato**: interruttore, cosa aspetta te, prossimi lavori, controlli di configurazione, attivita' recente;
 - **Coda**: anteprima, Approva / Rifiuta / Modifica didascalia, storico di ogni post;
 - **Genera**: un video a mano (formato, lingua, giornata o pool), anteprima e "metti in coda";
 - **Pubblica**: cosa esce e quando, simulazione (dry-run) e pubblicazione manuale confermata;
 - **Pubblicati e report**: numeri dei contenuti usciti, report settimanale, costi per canale;
+- **Impostazioni**: il .env locale (interruttore, lingue, TikTok, Telegram, PostHog, dati) senza scriverlo a mano;
 - **Guida**: come funziona e come si configura, con i passi gia' fatti spuntati.
 
 Si usa da sola (`streamlit run admin/app.py`) o dentro la dashboard del gioco chiamando
@@ -362,7 +363,7 @@ def tab_generate(settings, store, theme, game_source, actor):
 # Pubblica
 # ---------------------------------------------------------------------------------------
 
-def tab_publish(settings, store, theme, actor, posts):
+def tab_publish(settings, store, theme, actor, posts, env_path=None):
     from promo.publishers import build_publishers
 
     overview = status.queue_overview(posts)
@@ -391,18 +392,34 @@ def tab_publish(settings, store, theme, actor, posts):
     col1, col2 = st.columns(2)
     if col1.button("🧪 Simula (dry-run)", help="Fa tutto tranne la chiamata a Telegram/TikTok. Non cambia la coda."):
         with st.spinner("Simulazione…"):
-            lines = plan.publish_due(store, build_publishers(settings), theme, settings, dry_run=True)
+            lines = plan.publish_due(store, build_publishers(settings, env_path), theme, settings, dry_run=True)
         st.code("\n".join(lines), language=None)
     confirm = col2.checkbox("Confermo: pubblica davvero adesso")
     disabled = not (confirm and actor and settings.enabled)
     if col2.button("📣 Pubblica ora", type="primary", disabled=disabled):
         with st.spinner("Pubblicazione…"):
-            lines = plan.publish_due(store, build_publishers(settings), theme, settings)
+            lines = plan.publish_due(store, build_publishers(settings, env_path), theme, settings)
         st.code("\n".join(lines), language=None)
     if not settings.enabled:
         col2.caption("Disabilitato: PROMO_ENABLED non è attivo.")
     elif not actor:
         col2.caption("Scrivi il tuo nome nella barra laterale.")
+
+    approved = overview["upcoming"]
+    st.subheader("⚡ Invia subito un post")
+    st.caption("Un solo post **approvato**, senza aspettare l'orario di uscita. Su TikTok arriva come bozza "
+               "nell'app: lo apri, aggiungi la musica e pubblichi tu.")
+    if not approved:
+        st.caption("Nessun post approvato: approvane uno nella scheda **Coda**.")
+        return
+    by_id = {p["id"]: p for p in approved}
+    chosen = st.selectbox("Post", list(by_id), key="publish_one",
+                          format_func=lambda pid: f"{pid} · {CHANNEL_NAMES.get(by_id[pid].get('channel'), '')}")
+    if st.button("📤 Invia adesso", disabled=not (actor and settings.enabled), key="publish_one_btn"):
+        with st.spinner("Invio… (il caricamento su TikTok può richiedere un minuto)"):
+            lines = plan.publish_due(store, build_publishers(settings, env_path), theme, settings,
+                                     only_id=chosen, ignore_schedule=True)
+        st.code("\n".join(lines), language=None)
 
 
 # ---------------------------------------------------------------------------------------
@@ -568,8 +585,166 @@ def tab_guide(settings, game_source, game_error):
 
 
 # ---------------------------------------------------------------------------------------
+# Impostazioni (.env locale)
+# ---------------------------------------------------------------------------------------
 
-def render_page(store, theme, settings, game_source=None, game_error=None, store_error=None):
+def _secret_input(label, key, current, help_text=""):
+    """Campo per un segreto: il valore non si mostra mai; vuoto = lascia com'e'."""
+    state = "✅ impostato" if current.get(key) else "— non impostato"
+    col_in, col_rm = st.columns([4, 1])
+    value = col_in.text_input(f"{label} ({state})", type="password", key=f"env-{key}",
+                              placeholder="lascia vuoto per non cambiarlo", help=help_text)
+    remove = col_rm.checkbox("Cancella", key=f"env-rm-{key}", disabled=not current.get(key))
+    if remove:
+        return None
+    return value.strip() or current.get(key)
+
+
+def _optional(value: str):
+    return value.strip() or None
+
+
+def _tiktok_connect(settings, env_path):
+    """Collegamento dell'account TikTok (OAuth): link, indirizzo di ritorno incollato, token nel .env."""
+    from promo import envfile, tiktok_auth
+    from promo.publishers.tiktok import TikTokError
+
+    st.subheader("🔗 Account TikTok")
+    if settings.tiktok_refresh_token:
+        st.success(f"Collegato{': **' + settings.tiktok_account + '**' if settings.tiktok_account else ''}. "
+                   "I video approvati arrivano come bozze in questo account.")
+    if not (settings.tiktok_client_key and settings.tiktok_client_secret):
+        st.info("Prima salva **Client key** e **Client secret** qui sotto, poi torna qui per collegare l'account.")
+        return
+    with st.expander("Collega un account" if not settings.tiktok_refresh_token else "Collega di nuovo / cambia account",
+                     expanded=not settings.tiktok_refresh_token):
+        state = st.session_state.setdefault("tiktok_state", tiktok_auth.new_state())
+        st.markdown("**1.** Apri TikTok, fai il login con l'account del gioco e autorizza l'app.")
+        st.link_button("Apri TikTok e autorizza",
+                       tiktok_auth.authorize_url(settings.tiktok_client_key, settings.tiktok_redirect_uri, state))
+        st.markdown(f"**2.** TikTok ti riporta su `{settings.tiktok_redirect_uri}?code=…`: copia l'indirizzo "
+                    "completo dalla barra del browser e incollalo qui.")
+        returned = st.text_input("Indirizzo di ritorno", key="tiktok_return", type="password")
+        if st.button("✅ Completa il collegamento", disabled=not returned):
+            try:
+                code = tiktok_auth.parse_callback(returned, state)
+                with st.spinner("Collego l'account…"):
+                    result = tiktok_auth.connect(settings.tiktok_client_key, settings.tiktok_client_secret,
+                                                 settings.tiktok_redirect_uri, code)
+            except TikTokError as e:
+                st.error(str(e))
+                return
+            envfile.update(env_path, {"TIKTOK_REFRESH_TOKEN": result["refresh_token"],
+                                      "PROMO_TIKTOK_ACCOUNT": result["display_name"] or None})
+            for key in ("tiktok_state", "tiktok_return"):
+                st.session_state.pop(key, None)
+            st.success("Account collegato.")
+            st.rerun()
+
+
+def tab_settings(env_path, settings=None):
+    from promo import envfile
+
+    if env_path is None:
+        st.info("Impostazioni modificabili solo con la dashboard avviata da `streamlit run admin/app.py`.")
+        return
+    if settings is not None:
+        _tiktok_connect(settings, env_path)
+    current = envfile.read(env_path)
+    st.caption(f"Le modifiche si salvano in `{env_path}` (mai nel repository). Valgono per questa macchina: per "
+               "l'automatico su GitHub Actions vedi il riquadro in fondo.")
+
+    with st.form("settings"):
+        st.subheader("Generale")
+        enabled = st.toggle("Promo Studio attivo (bozze e pubblicazione)", value=_flag(current.get("PROMO_ENABLED")))
+        languages = st.multiselect("Lingue dei contenuti", LANGUAGES, format_func=lambda x: f"{FLAGS[x]} {x}",
+                                   default=[x for x in (current.get("PROMO_LANGUAGES") or ",".join(LANGUAGES)).split(",")
+                                            if x.strip() in LANGUAGES])
+        admin_name = st.text_input("Il tuo nome (registrato quando approvi)", value=current.get("PROMO_ADMIN_NAME", ""))
+
+        st.subheader("🎵 TikTok")
+        st.caption("I video arrivano come **bozze** nell'app TikTok. Chiavi da developers.tiktok.com (scope "
+                   "`video.upload`); il refresh token si ottiene con l'autorizzazione OAuth.")
+        tiktok = {key: _secret_input(label, key, current) for key, label in (
+            ("TIKTOK_CLIENT_KEY", "Client key"), ("TIKTOK_CLIENT_SECRET", "Client secret"),
+            ("TIKTOK_REFRESH_TOKEN", "Refresh token"))}
+
+        st.subheader("✈️ Canale Telegram")
+        tg_raw = (current.get("PROMO_TELEGRAM_LANGUAGES") or "it").strip().lower()
+        tg_on = st.toggle("Pubblica anche sul canale Telegram", value=tg_raw != "none")
+        tg_langs = st.multiselect("Lingue sul canale", LANGUAGES, format_func=lambda x: f"{FLAGS[x]} {x}",
+                                  default=[x for x in tg_raw.split(",") if x.strip() in LANGUAGES] or ["it"])
+        tg_channel = st.text_input("Canale (es. @nome_canale)", value=current.get("PROMO_TELEGRAM_CHANNEL_ID", ""))
+        bot_token = _secret_input("Token del bot", "BOT_TOKEN", current, "Serve anche per inviarti il report.")
+
+        st.subheader("📊 Report (PostHog)")
+        posthog_key = _secret_input("PostHog personal API key", "POSTHOG_PERSONAL_API_KEY", current)
+        posthog_project = st.text_input("PostHog project id", value=current.get("POSTHOG_PROJECT_ID", ""))
+        admin_chat = st.text_input("Chat Telegram dove ricevere il report (facoltativo)",
+                                   value=current.get("PROMO_ADMIN_CHAT_ID", ""))
+
+        st.subheader("🗄️ Dati")
+        st.caption("Queste richiedono il riavvio della dashboard (Ctrl+C e di nuovo `streamlit run admin/app.py`).")
+        offline = st.toggle("Modalità offline (demo: niente Firestore, solo pool riservato)",
+                            value=_flag(current.get("PROMO_OFFLINE")))
+        store_kind = st.radio("Dove sta la coda", ("local", "firestore"), horizontal=True,
+                              index=0 if (current.get("PROMO_STORE") or "firestore") == "local" else 1,
+                              format_func={"local": "file locale (promo_posts.json)", "firestore": "Firestore"}.get)
+        game_path = st.text_input("Percorso del repository del gioco", value=current.get("GAME_REPO_PATH", ""))
+        firebase = st.text_input("File chiave Firestore (service account del bot)",
+                                 value=current.get("FIREBASE_CREDENTIALS_PATH", ""))
+
+        submitted = st.form_submit_button("💾 Salva impostazioni", type="primary")
+
+    if submitted:
+        if offline and store_kind != "local":
+            st.error("In modalità offline la coda deve essere il file locale.")
+            return
+        changes = {
+            "PROMO_ENABLED": "true" if enabled else "false",
+            "PROMO_LANGUAGES": ",".join(languages) or None,
+            "PROMO_ADMIN_NAME": _optional(admin_name),
+            **tiktok,
+            "PROMO_TELEGRAM_LANGUAGES": ",".join(tg_langs or ["it"]) if tg_on else "none",
+            "PROMO_TELEGRAM_CHANNEL_ID": _optional(tg_channel),
+            "BOT_TOKEN": bot_token,
+            "POSTHOG_PERSONAL_API_KEY": posthog_key,
+            "POSTHOG_PROJECT_ID": _optional(posthog_project),
+            "PROMO_ADMIN_CHAT_ID": _optional(admin_chat),
+            "PROMO_OFFLINE": "true" if offline else None,
+            "PROMO_STORE": store_kind,
+            "GAME_REPO_PATH": _optional(game_path),
+            "FIREBASE_CREDENTIALS_PATH": _optional(firebase),
+        }
+        envfile.update(env_path, {k: v for k, v in changes.items() if v != current.get(k)})
+        for key in [k for k in st.session_state if str(k).startswith("env-")]:
+            del st.session_state[key]  # i segreti appena scritti non restano nei campi
+        st.success("Impostazioni salvate.")
+        st.rerun()
+
+    st.markdown("---")
+    with st.expander("🤖 Per l'automatico su GitHub Actions"):
+        st.markdown(
+            "Il `.env` vale solo su questa macchina. Su GitHub (**Settings → Secrets and variables → Actions**) "
+            "servono gli stessi valori:\n\n"
+            "- *Variables*: `PROMO_ENABLED`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES`"
+            + (" (`none`)" if tg_raw == "none" else "") +
+            ", `PROMO_TELEGRAM_CHANNEL_ID`, `POSTHOG_PROJECT_ID`, `PROMO_ADMIN_CHAT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`\n"
+            "- *Secrets*: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `BOT_TOKEN`, `POSTHOG_PERSONAL_API_KEY`, "
+            "`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`\n\n"
+            "In automatico il refresh token TikTok sta in Secret Manager (ruota a ogni uso).")
+        st.code("\n".join(f"{k}={current[k]}" for k in (
+            "PROMO_ENABLED", "PROMO_LANGUAGES", "PROMO_TELEGRAM_LANGUAGES", "PROMO_TELEGRAM_CHANNEL_ID",
+            "POSTHOG_PROJECT_ID", "PROMO_ADMIN_CHAT_ID") if current.get(k)) or "(niente da copiare)", language="dotenv")
+
+
+def _flag(value) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+# ---------------------------------------------------------------------------------------
+
+def render_page(store, theme, settings, game_source=None, game_error=None, store_error=None, env_path=None):
     st.title("📣 Promo Studio")
     st.caption("La macchina prepara, la persona approva: niente esce senza un ✅.")
     actor = _actor(settings)
@@ -590,7 +765,7 @@ def render_page(store, theme, settings, game_source=None, game_error=None, store
     drafts = counts.get(STATUS_DRAFT, 0)
     tabs = st.tabs([
         "🏠 Stato", f"📝 Coda ({drafts})" if drafts else "📝 Coda", "🎬 Genera", "📤 Pubblica",
-        "📊 Pubblicati e report", "📖 Guida",
+        "📊 Pubblicati e report", "⚙️ Impostazioni", "📖 Guida",
     ])
     with tabs[0]:
         tab_status(settings, store, game_source, game_error, posts)
@@ -602,8 +777,10 @@ def render_page(store, theme, settings, game_source=None, game_error=None, store
         if store is None:
             st.error("Coda non disponibile.")
         else:
-            tab_publish(settings, store, theme, actor, posts)
+            tab_publish(settings, store, theme, actor, posts, env_path)
     with tabs[4]:
         tab_results(settings, store, game_source, posts)
     with tabs[5]:
+        tab_settings(env_path, settings)
+    with tabs[6]:
         tab_guide(settings, game_source, game_error)

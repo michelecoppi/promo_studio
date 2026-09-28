@@ -120,3 +120,9 @@ def test_rotation_falls_back_to_who_is(tmp_path, monkeypatch):
     store = MemoryStore()
     plan.generate_drafts(settings(tmp_path, languages=("it",)), game, store, None, fmt="percent", now=NOW)
     assert {p["format"] for p in store.list()} == {"who_is"}
+
+
+def test_telegram_languages_none_disables_channel():
+    from promo.config import Settings
+    assert Settings.from_env({"PROMO_TELEGRAM_LANGUAGES": "none"}).telegram_languages == ()
+    assert Settings.from_env({}).telegram_languages == ("it",)

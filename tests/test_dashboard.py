@@ -78,3 +78,27 @@ def test_costs_are_saved(app):
     next(b for b in at.button if b.label == "💾 Salva costi").click().run()
     assert not at.exception
     assert (tmp / "costs.json").exists()
+
+
+def test_settings_saved_to_env(app, monkeypatch):
+    at, tmp = app
+    for key in ("PROMO_ENABLED", "PROMO_TELEGRAM_LANGUAGES", "TIKTOK_CLIENT_KEY"):
+        monkeypatch.delenv(key, raising=False)  # envfile.update scrive anche in os.environ
+    at.text_input(key="env-TIKTOK_CLIENT_KEY").input("ck-123")
+    next(t for t in at.toggle if t.label == "Pubblica anche sul canale Telegram").set_value(False)
+    next(b for b in at.button if b.label == "💾 Salva impostazioni").click().run()
+    assert not at.exception, at.exception
+    from promo import envfile
+    saved = envfile.read(tmp / ".env")
+    assert saved["TIKTOK_CLIENT_KEY"] == "ck-123" and saved["PROMO_TELEGRAM_LANGUAGES"] == "none"
+    assert "ck-123" not in "".join(str(e.value) for e in at.text_input)  # il segreto non torna nella pagina
+
+
+def test_publish_one_now_ignores_schedule(app):
+    at, tmp = app
+    assert any(s.key == "publish_one" for s in at.selectbox)
+    next(b for b in at.button if b.label == "📤 Invia adesso").click().run()
+    assert not at.exception, at.exception
+    post = json.loads((tmp / "q.json").read_text())["a1"]
+    # a1 esce nel 2099 ma viene tentato subito (fallisce: nel test non ha un video)
+    assert post["status"] == "failed" and post.get("error"), post

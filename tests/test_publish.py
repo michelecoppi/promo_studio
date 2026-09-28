@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fakes import FakeGame
 from helpers import NOW, fake_render, settings
@@ -213,17 +215,24 @@ def test_tiktok_uploads_as_draft_and_rotates_token(tmp_path):
     assert init[2]["headers"]["Authorization"] == "Bearer acc-123456"
     put = next(c for c in session.calls if c[0] == "PUT")
     assert put[2]["headers"]["Content-Range"] == "bytes 0-2047/2048"
-    assert tokens.load() == "r2" and oct((tmp_path / "tok.json").stat().st_mode)[-3:] == "600"
+    assert tokens.load() == "r2"
+    if os.name != "nt":
+        assert oct((tmp_path / "tok.json").stat().st_mode)[-3:] == "600"
 
 
 def test_tiktok_failure_is_reported():
     session = tiktok_session(status_sequence=("FAILED",))
     publisher = TikTokDraftPublisher("key", "secret", TokenStore("r1"), session, sleep=lambda s: None)
+    import os
     import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".mp4") as fh:
+    fh = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    try:
         fh.write(b"x" * 10)
         fh.flush()
+        fh.close()
         result = publisher.publish({"id": "p"}, fh.name)
+    finally:
+        os.unlink(fh.name)
     assert not result.ok and "rifiutato" in result.error
 
 

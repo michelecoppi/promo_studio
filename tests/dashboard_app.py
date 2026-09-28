@@ -24,4 +24,5 @@ settings = Settings(enabled=True, admin_name="michele", store="local", media_dir
                     reports_dir=__import__("pathlib").Path(tmp) / "reports",
                     telegram_channel_id="@c", bot_token="1:x")
 game = FakeGame()
-render_page(JsonFileStore(os.path.join(tmp, "q.json")), Theme.from_game(game), settings, game)
+render_page(JsonFileStore(os.path.join(tmp, "q.json")), Theme.from_game(game), settings, game,
+            env_path=__import__("pathlib").Path(tmp) / ".env")

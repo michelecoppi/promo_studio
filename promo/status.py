@@ -2,8 +2,10 @@
 lavori pianificati, riepilogo della coda. Lo usano sia `python -m promo doctor` sia la scheda
 "Stato" dell'admin, cosi' le due viste non possono raccontare cose diverse.
 """
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -24,7 +26,7 @@ class Check:
     fix: str = ""
 
 
-def checks(settings, game_source=None, game_error: Optional[str] = None) -> list:
+def checks(settings, game_source=None, game_error: Optional[str] = None, env_file=".env") -> list:
     out = []
     out.append(Check(
         "Generale", "Interruttore PROMO_ENABLED",
@@ -47,7 +49,9 @@ def checks(settings, game_source=None, game_error: Optional[str] = None) -> list
         out.append(Check("Gioco", "Font Barlow Condensed", OK if font else WARN,
                          "trovato" if font else "non trovato: uso il font di ripiego"))
         try:
-            missing = promo_copy.check_sources(game_source.campaign_sources())
+            in_use = {"tiktok"} | ({"telegram_channel"} if settings.telegram_languages else set()) | (
+                {"x"} if settings.x_enabled else set())
+            missing = promo_copy.check_sources(game_source.campaign_sources(), in_use)
         except Exception as e:  # pragma: no cover - dipende dal gioco
             missing, detail = [], f"non verificabile: {e}"
         else:
@@ -86,7 +90,11 @@ def checks(settings, game_source=None, game_error: Optional[str] = None) -> list
     out.append(Check("Canali", "TikTok (bozze)", OK if not tiktok else WARN,
                      "configurato" if not tiktok else "mancano " + ", ".join(tiktok),
                      "" if not tiktok else "app su developers.tiktok.com con scope video.upload (vedi Guida)"))
-    if not tiktok and not settings.tiktok_refresh_token_secret:
+    if not tiktok and not settings.tiktok_refresh_token_secret and Path(env_file).exists():
+        out.append(Check("Canali", "Rotazione token TikTok", OK,
+                         f"il refresh token ruotato si salva nel {env_file} locale "
+                         "(per GitHub Actions serve Secret Manager)"))
+    elif not tiktok and not settings.tiktok_refresh_token_secret and not os.environ.get("PROMO_TIKTOK_TOKEN_FILE"):
         out.append(Check("Canali", "Rotazione token TikTok", WARN,
                          "il refresh token ruotato non viene salvato in Secret Manager",
                          "TIKTOK_REFRESH_TOKEN_SECRET=projects/<p>/secrets/<nome> (o PROMO_TIKTOK_TOKEN_FILE in locale)"))
@@ -94,7 +102,6 @@ def checks(settings, game_source=None, game_error: Optional[str] = None) -> list
                      "fase successiva: non implementato" if not settings.x_enabled
                      else "abilitato ma non implementato: i post x falliranno"))
 
-    import os
     posthog = bool(os.environ.get("POSTHOG_PERSONAL_API_KEY") and os.environ.get("POSTHOG_PROJECT_ID"))
     out.append(Check("Report", "PostHog (sola lettura)", OK if posthog else WARN,
                      "configurato" if posthog else "mancano POSTHOG_PERSONAL_API_KEY e/o POSTHOG_PROJECT_ID",

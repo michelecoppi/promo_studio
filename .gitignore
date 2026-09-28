@@ -12,3 +12,4 @@ promo-media/
 # Coda locale (PROMO_STORE=local) e costi: dati operativi, non codice.
 promo_posts.json
 reports/
+*.log

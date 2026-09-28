@@ -4,7 +4,8 @@ from promo.publishers.base import Publisher, PublishResult, post_text
 __all__ = ["Publisher", "PublishResult", "post_text", "build_publishers"]
 
 
-def build_publishers(settings) -> dict:
+def build_publishers(settings, env_file=None) -> dict:
+    """`env_file`: il .env locale dove riscrivere il refresh token TikTok quando ruota."""
     from promo.publishers.telegram import TelegramChannelPublisher
     from promo.publishers.tiktok import TikTokDraftPublisher, token_store
     from promo.publishers.x import XPublisher
@@ -12,7 +13,7 @@ def build_publishers(settings) -> dict:
     publishers = {
         "telegram_channel": TelegramChannelPublisher(settings.bot_token, settings.telegram_channel_id),
         "tiktok": TikTokDraftPublisher(settings.tiktok_client_key, settings.tiktok_client_secret,
-                                       token_store(settings)),
+                                       token_store(settings, env_file)),
     }
     if settings.x_enabled:
         publishers["x"] = XPublisher()
