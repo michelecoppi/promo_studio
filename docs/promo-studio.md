@@ -175,7 +175,28 @@ draft ──→ approved ──→ published
 
 Campi (oltre a quelli della specifica §6): `created_for` (giorno di uscita), `cover_path`,
 `media_sha256`, `duration`, `attempts`, `publishing_since` (lucchetto di pubblicazione), `history`,
+`approval_message_id` (il messaggio Telegram con i pulsanti, vedi sotto),
 `render_spec` (le schede usate, per rigenerare il video identico). Le date sono stringhe ISO 8601 UTC.
+
+### Approvare da Telegram
+
+Facoltativo, con un **bot dedicato** (creato con BotFather, diverso da quello del gioco) e la chat
+privata dell'admin: `PROMO_APPROVAL_BOT_TOKEN` + `PROMO_ADMIN_CHAT_ID`. L'admin scrive `/start` al bot
+una volta, poi:
+
+1. dopo le bozze delle 07:00, `python -m promo ask-approval` gli manda ogni video in attesa con
+   didascalia, canali e due pulsanti **✅ Approva** / **❌ Rifiuta**. Un video vale per tutti i canali
+   della sua lingua (TikTok e canale Telegram);
+2. `python -m promo sync-approvals` (ogni mezz'ora fino alle 11:45 e subito prima di pubblicare) legge i
+   pulsanti premuti con `getUpdates`, porta i post in `approved`/`rejected` e aggiorna il messaggio
+   ("✅ Approvato da …", pulsanti tolti);
+3. dopo la pubblicazione l'admin riceve l'esito (link ai post o errori).
+
+Il workflow non è un bot sempre acceso, quindi la conferma arriva al giro successivo (al massimo mezz'ora).
+Il bot è separato perché quello del gioco riceve già gli aggiornamenti via webhook, e `getUpdates` non
+funziona con un webhook attivo. Contano solo i pulsanti premuti dall'admin nella sua chat; un post già
+deciso (anche dalla dashboard) non cambia. Chi approva risulta come `PROMO_ADMIN_NAME` o, se non c'è,
+lo username Telegram. Per modificare la didascalia o approvare un solo canale resta la dashboard.
 
 **Dove stanno i video.** Prima versione: disco locale (`PROMO_MEDIA_DIR`) e artifact di GitHub Actions
 (14 giorni). Il file non deve viaggiare fra macchine: se manca, admin e publisher lo rigenerano da
@@ -257,6 +278,11 @@ round di gruppo, notifiche attivate; contenuti pubblicati per canale (da `promo_
 | ogni giorno 07:00 | `drafts`: 1 video per lingua nel formato del giorno + la soluzione di ieri, in coda come `draft` |
 | ogni giorno 12:00 | `publish`: gli `approved` in scadenza |
 | venerdì 09:00 | `report` (+ `--notify` se `PROMO_ADMIN_CHAT_ID` è impostata) |
+| ogni 30 min, 07:15-11:45 | `sync-approvals`: i pulsanti premuti su Telegram (solo se c'è il bot di approvazione) |
+
+Con il bot di approvazione, `drafts` è seguito da `ask-approval` e `publish` è preceduto da
+`sync-approvals`. I cron delle approvazioni sono a :15 e :45 per non partire mai insieme agli altri:
+con `concurrency` GitHub tiene in attesa un solo run per volta.
 
 Rotazione dei formati: lun `who_is`, mar `percent`, mer `journeyman`, gio `who_is`, ven `ladder`,
 sab `percent`, dom `who_is` (ripiego su `who_is` se manca materiale). I cron sono in UTC e raddoppiati per
@@ -269,13 +295,13 @@ segreti che servono. Da configurare nel repository:
 | Tipo | Nome |
 | --- | --- |
 | secret | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT` (Firestore + Secret Manager) |
-| secret | `BOT_TOKEN`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `POSTHOG_PERSONAL_API_KEY` |
-| variabile | `PROMO_ENABLED`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `POSTHOG_PROJECT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES` |
+| secret | `BOT_TOKEN`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `POSTHOG_PERSONAL_API_KEY`, `PROMO_APPROVAL_BOT_TOKEN` (facoltativo) |
+| variabile | `PROMO_ENABLED`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `PROMO_ADMIN_NAME`, `POSTHOG_PROJECT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES` |
 
 Il service account ha bisogno di: lettura/scrittura Firestore (`roles/datastore.user`), e per TikTok
 `secretmanager.versions.access` + `secretmanager.versions.add` sul solo segreto del refresh token.
 
-`workflow_dispatch` permette di lanciare a mano `drafts`, `publish` o `report` (di default in `--dry-run`).
+`workflow_dispatch` permette di lanciare a mano `drafts`, `publish`, `report` o `sync` (di default in `--dry-run`).
 Cron locale equivalente: `0 7 * * *  python -m promo drafts`, `0 12 * * *  python -m promo publish`,
 `0 9 * * 5  python -m promo report --notify`.
 
@@ -289,6 +315,7 @@ Tutte le variabili sono in `.env.example` (commentate, senza valori). Le princip
 | `PROMO_LANGUAGES` | default `it,en,es` |
 | `PROMO_TELEGRAM_LANGUAGES` | lingue pubblicate anche sul canale Telegram (default `it`; `none` lo spegne) |
 | `PROMO_TELEGRAM_CHANNEL_ID` | canale di proprietà |
+| `PROMO_APPROVAL_BOT_TOKEN`, `PROMO_ADMIN_CHAT_ID` | approvazione da Telegram (bot dedicato, segreto) |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN` | Content Posting API (segreti) |
 | `TIKTOK_REFRESH_TOKEN_SECRET` / `PROMO_TIKTOK_TOKEN_FILE` | dove salvare il refresh token ruotato |
 | `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID` | già esistenti nel gioco, per il report |

@@ -2,6 +2,7 @@
 #   ogni giorno 07:00  bozze del giorno (poi le approva una persona)
 #   ogni giorno 12:00  pubblicazione degli approvati
 #   venerdi'    09:00  report settimanale
+#   ogni 30 min 07:15-11:45  approvazioni premute su Telegram (se c'e' il bot di approvazione)
 # GitHub usa cron in UTC e non conosce l'ora legale: ogni lavoro ha due cron (CEST e CET) e la
 # CLI decide con --at-rome-hour. I lavori sono idempotenti, quindi un doppio avvio non fa danni.
 # Niente gira senza PROMO_ENABLED=true (variabile del repository).
@@ -15,10 +16,11 @@ on:
     - cron: "0 11 * * *"  # 12:00 CET
     - cron: "0 7 * * 5"   # 09:00 CEST, venerdi'
     - cron: "0 8 * * 5"   # 09:00 CET, venerdi'
+    - cron: "15,45 5-10 * * *"  # ogni mezz'ora, 07:15-11:45 a Roma; mai insieme agli altri (concurrency)
   workflow_dispatch:
     inputs:
       command:
-        description: "drafts | publish | report"
+        description: "drafts | publish | report | sync"
         required: true
         default: drafts
       dry_run:
@@ -55,6 +57,7 @@ jobs:
             "0 5 * * *"|"0 6 * * *")   echo "command=drafts"  >> "$GITHUB_OUTPUT"; echo "hours=7,8"  >> "$GITHUB_OUTPUT" ;;
             "0 10 * * *"|"0 11 * * *") echo "command=publish" >> "$GITHUB_OUTPUT"; echo "hours=12,13" >> "$GITHUB_OUTPUT" ;;
             "0 7 * * 5"|"0 8 * * 5")   echo "command=report"  >> "$GITHUB_OUTPUT"; echo "hours=9"    >> "$GITHUB_OUTPUT" ;;
+            "15,45 5-10 * * *")        echo "command=sync"    >> "$GITHUB_OUTPUT"; echo "hours=7,8,9,10,11" >> "$GITHUB_OUTPUT" ;;
             *) echo "command=${{ inputs.command }}" >> "$GITHUB_OUTPUT"; echo "hours=" >> "$GITHUB_OUTPUT" ;;
           esac
 
@@ -79,6 +82,31 @@ jobs:
         if: steps.job.outputs.command == 'drafts'
         run: python -m promo drafts --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ inputs.dry_run && '--dry-run' || '' }}
 
+      # Le bozze all'admin su Telegram, con i pulsanti Approva / Rifiuta (promo/approvals.py).
+      - name: Bozze all'admin per l'approvazione
+        if: steps.job.outputs.command == 'drafts' && !inputs.dry_run
+        env:
+          PROMO_APPROVAL_BOT_TOKEN: ${{ secrets.PROMO_APPROVAL_BOT_TOKEN }}
+          PROMO_ADMIN_CHAT_ID: ${{ vars.PROMO_ADMIN_CHAT_ID }}
+        run: |
+          if [ -z "$PROMO_APPROVAL_BOT_TOKEN" ] || [ -z "$PROMO_ADMIN_CHAT_ID" ]; then
+            echo "approvazione da Telegram non configurata: si approva dalla dashboard"; exit 0
+          fi
+          python -m promo ask-approval --at-rome-hour "${{ steps.job.outputs.hours }}"
+
+      # I pulsanti premuti su Telegram: ogni mezz'ora e comunque subito prima di pubblicare.
+      - name: Approvazioni da Telegram
+        if: (steps.job.outputs.command == 'sync' || steps.job.outputs.command == 'publish') && !inputs.dry_run
+        env:
+          PROMO_APPROVAL_BOT_TOKEN: ${{ secrets.PROMO_APPROVAL_BOT_TOKEN }}
+          PROMO_ADMIN_CHAT_ID: ${{ vars.PROMO_ADMIN_CHAT_ID }}
+          PROMO_ADMIN_NAME: ${{ vars.PROMO_ADMIN_NAME }}
+        run: |
+          if [ -z "$PROMO_APPROVAL_BOT_TOKEN" ] || [ -z "$PROMO_ADMIN_CHAT_ID" ]; then
+            echo "approvazione da Telegram non configurata"; exit 0
+          fi
+          python -m promo sync-approvals --at-rome-hour "${{ steps.job.outputs.hours }}"
+
       - name: Pubblicazione degli approvati
         if: steps.job.outputs.command == 'publish'
         env:
@@ -87,6 +115,8 @@ jobs:
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN_SECRET: ${{ vars.TIKTOK_REFRESH_TOKEN_SECRET }}
+          PROMO_APPROVAL_BOT_TOKEN: ${{ secrets.PROMO_APPROVAL_BOT_TOKEN }}
+          PROMO_ADMIN_CHAT_ID: ${{ vars.PROMO_ADMIN_CHAT_ID }}
         run: python -m promo publish --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: Report settimanale

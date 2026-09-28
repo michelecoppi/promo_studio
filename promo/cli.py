@@ -6,6 +6,8 @@ Comandi:
   drafts        genera le bozze del giorno in coda `promo_posts` (M2, M7)
   list          elenca i post in coda
   approve / reject / edit-caption   azioni dell'admin (M2)
+  ask-approval  manda le bozze all'admin su Telegram, con i pulsanti Approva / Rifiuta
+  sync-approvals  applica i pulsanti premuti dall'admin
   publish       pubblica gli `approved` in scadenza (M3, M4); --dry-run non chiama nessuno
   report        report settimanale in Markdown (M6)
   doctor        controlla la configurazione
@@ -179,6 +181,43 @@ def cmd_publish(args, settings) -> int:
     )
     for line in results:
         print(line)
+    if not args.dry_run:
+        from promo import approvals
+        bot = approvals.build_bot(settings)
+        if bot is not None:
+            approvals.report_published(bot, results)
+    return 0
+
+
+def _approval_bot(settings):
+    from promo import approvals
+    bot = approvals.build_bot(settings)
+    if bot is None:
+        raise ValueError("per le approvazioni da Telegram servono PROMO_APPROVAL_BOT_TOKEN e PROMO_ADMIN_CHAT_ID")
+    return bot
+
+
+def cmd_ask_approval(args, settings) -> int:
+    if not _rome_hour_ok(_hours(args.at_rome_hour)):
+        print("fuori dall'ora prevista (Europe/Rome): niente da fare")
+        return 0
+    from promo import approvals
+
+    bot = _approval_bot(settings)
+    game_source = _game(settings)
+    for line in approvals.ask(_store(settings), bot, _theme(game_source), settings, day=args.day or None):
+        print(line)
+    return 0
+
+
+def cmd_sync_approvals(args, settings) -> int:
+    if not _rome_hour_ok(_hours(args.at_rome_hour)):
+        print("fuori dall'ora prevista (Europe/Rome): niente da fare")
+        return 0
+    from promo import approvals
+
+    for line in approvals.sync(_store(settings), _approval_bot(settings), settings):
+        print(line)
     return 0
 
 
@@ -309,6 +348,15 @@ def parser() -> argparse.ArgumentParser:
                    help="con --id: pubblica subito anche se l'orario di uscita non e' ancora arrivato")
     p.add_argument("--at-rome-hour", default="")
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser("ask-approval", help="manda le bozze all'admin su Telegram per l'approvazione")
+    p.add_argument("--day", help="solo le bozze di questo giorno (default: tutte quelle in attesa)")
+    p.add_argument("--at-rome-hour", default="")
+    p.set_defaults(func=cmd_ask_approval)
+
+    p = sub.add_parser("sync-approvals", help="applica i pulsanti Approva / Rifiuta premuti su Telegram")
+    p.add_argument("--at-rome-hour", default="")
+    p.set_defaults(func=cmd_sync_approvals)
 
     p = sub.add_parser("tiktok-auth", help="collega l'account TikTok (una volta sola)")
     p.add_argument("--env-file", default=".env", help="dove salvare il refresh token")

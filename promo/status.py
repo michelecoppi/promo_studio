@@ -109,6 +109,11 @@ def checks(settings, game_source=None, game_error: Optional[str] = None, env_fil
     out.append(Check("Report", "Invio all'admin", OK if settings.admin_chat_id and settings.bot_token else OFF,
                      "attivo" if settings.admin_chat_id and settings.bot_token else "non configurato (facoltativo)",
                      "" if settings.admin_chat_id else "PROMO_ADMIN_CHAT_ID = il tuo id Telegram"))
+    approval = bool(settings.approval_bot_token and settings.admin_chat_id)
+    out.append(Check("Coda", "Approvazione da Telegram", OK if approval else OFF,
+                     "le bozze arrivano all'admin con i pulsanti Approva / Rifiuta" if approval
+                     else "non configurata (facoltativa: si approva dalla dashboard)",
+                     "" if approval else "un bot nuovo da BotFather: PROMO_APPROVAL_BOT_TOKEN + PROMO_ADMIN_CHAT_ID"))
     out.append(Check("Report", "File dei costi", OK if settings.costs_file.exists() else WARN,
                      str(settings.costs_file), "" if settings.costs_file.exists() else "crealo dalla scheda Report"))
     return out
