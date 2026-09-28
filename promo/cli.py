@@ -4,6 +4,7 @@ Comandi:
   render        genera un video + copertina + testi (M1, M5)
   brief         bozza di testo per un creator pagato, con #adv (da copiare a mano)
   drafts        genera le bozze del giorno in coda `promo_posts` (M2, M7)
+  brief-import  bozza da un brief del supervisore (formato, lingua, canale, campaign_id)
   list          elenca i post in coda
   approve / reject / edit-caption   azioni dell'admin (M2)
   ask-approval  manda le bozze all'admin su Telegram, con i pulsanti Approva / Rifiuta
@@ -121,6 +122,21 @@ def cmd_drafts(args, settings) -> int:
         day=args.day or None, fmt=args.format or None, dry_run=args.dry_run,
     )
     for line in created:
+        print(line)
+    return 0
+
+
+def cmd_brief_import(args, settings) -> int:
+    from promo import briefs
+
+    brief = briefs.load(args.file)  # prima di tutto: un brief sbagliato si segnala sempre
+    if not settings.enabled and not args.dry_run:
+        print("PROMO_ENABLED non attivo: nessuna bozza generata (usa --dry-run per provare)")
+        return 0
+    game_source = _game(settings)
+    lines = briefs.import_brief(settings, game_source, _store(settings), _theme(game_source), brief,
+                                day=args.day or None, dry_run=args.dry_run)
+    for line in lines:
         print(line)
     return 0
 
@@ -320,6 +336,12 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", action="store_true", help="genera i file ma non scrive la coda")
     p.add_argument("--at-rome-hour", default="", help="esegui solo in queste ore di Roma (es. 7,8)")
     p.set_defaults(func=cmd_drafts)
+
+    p = sub.add_parser("brief-import", help="bozza da un brief del supervisore (file JSON)")
+    p.add_argument("file", help="brief: campaign_id, language, format, channel, cta, angle, facts[]")
+    p.add_argument("--day", help="giorno di pubblicazione (default: 'day' del brief, poi oggi)")
+    p.add_argument("--dry-run", action="store_true", help="genera i file ma non scrive la coda")
+    p.set_defaults(func=cmd_brief_import)
 
     p = sub.add_parser("list", help="elenca i post in coda")
     p.add_argument("--status", choices=STATUSES)

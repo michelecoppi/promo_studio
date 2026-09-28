@@ -16,6 +16,7 @@ pubblica niente che non sia `approved`.
 - [Regola anti-spoiler](#regola-anti-spoiler)
 - [Dashboard](#dashboard)
 - [Coda e approvazione](#coda-e-approvazione)
+- [Brief del supervisore](#brief-del-supervisore)
 - [Pubblicazione](#pubblicazione)
 - [Report settimanale](#report-settimanale)
 - [Pianificazione (GitHub Actions)](#pianificazione-github-actions)
@@ -88,6 +89,7 @@ python -m promo render --format journeyman --lang es --pool-player mauro_zarate 
 # → out/<origine>-<formato>-<lingua>.mp4, .png (copertina), .txt (didascalia, hashtag, commento), .json
 
 python -m promo drafts                 # bozze del giorno in coda (serve PROMO_ENABLED=true)
+python -m promo brief-import brief.json  # bozza da un brief del supervisore (vedi sotto)
 streamlit run admin/app.py             # approva / rifiuta / modifica la didascalia
 python -m promo list --status draft
 python -m promo approve <id> --by michele
@@ -176,7 +178,9 @@ draft ──→ approved ──→ published
 Campi (oltre a quelli della specifica §6): `created_for` (giorno di uscita), `cover_path`,
 `media_sha256`, `duration`, `attempts`, `publishing_since` (lucchetto di pubblicazione), `history`,
 `approval_message_id` (il messaggio Telegram con i pulsanti, vedi sotto),
-`render_spec` (le schede usate, per rigenerare il video identico). Le date sono stringhe ISO 8601 UTC.
+`render_spec` (le schede usate, per rigenerare il video identico), `brief_id` e `brief` (solo per le
+bozze nate da un [brief del supervisore](#brief-del-supervisore), altrimenti `null`). Le date sono
+stringhe ISO 8601 UTC.
 
 ### Approvare da Telegram
 
@@ -203,6 +207,41 @@ lo username Telegram. Per modificare la didascalia o approvare un solo canale re
 `render_spec` (deterministico; lo sha256 viene confrontato e un'eventuale differenza annotata nel log).
 Se servisse condividerli davvero, un bucket Cloud Storage privato andrà documentato in `docs/deploy.md`
 del gioco.
+
+## Brief del supervisore
+
+Il supervisore (gtp_orchestrator, M4) prepara ogni settimana dei brief; ognuno diventa una bozza con
+`python -m promo brief-import <file.json>` (`--day` per il giorno di uscita, `--dry-run` per provare):
+
+```json
+{
+  "campaign_id": "2026w40_it_tiktok",
+  "language": "it",
+  "format": "who_is",
+  "channel": "tiktok",
+  "cta": "Gioca sul bot",
+  "angle": "i giramondo della Serie A",
+  "facts": ["ha cambiato 7 squadre in 12 anni"],
+  "day": "2026-10-02"
+}
+```
+
+- `language` fra `it`, `en`, `es`; `format` fra `who_is`, `percent`, `ladder`, `journeyman` (la
+  `solution` nasce solo dall'indovinello del giorno prima); `channel` fra `tiktok`, `telegram_channel`,
+  `x`. Un valore fuori elenco è rifiutato con l'elenco di quelli ammessi, e niente viene scritto.
+- `campaign_id`: lettere, cifre, `_` e `-`; con il prefisso `src_<canale>-` deve stare nei 64 caratteri
+  del parametro `start` di Telegram. `day` è facoltativo (default: oggi; `--day` ha la precedenza).
+- La bozza usa formato e lingua del brief; le schede le sceglie il picker con le stesse regole
+  anti-spoiler e la stessa esclusione degli ultimi 30 giorni. Se il formato non ha materiale si ripiega
+  su `who_is`, come nella rotazione.
+- **I testi restano quelli dei template.** `cta`, `angle` e `facts` finiscono nel campo `brief` del post
+  (la dashboard li mostra a chi approva) ma non nella didascalia: se servono, li scrive una persona.
+- Il post ha id `<id consueto>-<campaign_id>` e `brief_id` = `campaign_id`. Stesso `campaign_id` e stesso
+  giorno → nessun doppione. Le bozze da brief non tolgono la bozza della rotazione di quel giorno.
+- Link tracciato: con `PROMO_CAMPAIGN_LINKS=true` è `https://t.me/<bot>?start=src_<canale>-<campaign_id>`;
+  senza (default) resta `src_<canale>`, finché il gioco non sa leggere la campagna
+  (michelecoppi/guess_the_player_from_the_path#218).
+- La macchina a stati non cambia: la bozza nasce `draft` e l'approvazione resta umana.
 
 ## Pubblicazione
 
@@ -322,6 +361,7 @@ Tutte le variabili sono in `.env.example` (commentate, senza valori). Le princip
 | `GAME_REPO_PATH` | checkout del gioco |
 | `PROMO_STORE` | `firestore` (default) o `local` |
 | `PROMO_X_ENABLED` | X/Threads (non ancora implementato) |
+| `PROMO_CAMPAIGN_LINKS` | link `src_<canale>-<campaign_id>` per le bozze da brief (default off: serve il supporto nel gioco) |
 
 Segreti: mai nel repository, mai nei log. `Settings.__repr__` li oscura, `promo/log.py` toglie i valori
 noti, i token nelle URL della Bot API e i `Bearer`, e passa anche da `services/observability.py`.
@@ -336,7 +376,7 @@ noti, i token nelle URL della Bot API e i `Bearer`, e passa anche da `services/o
 
 ## Modifiche richieste nel repository del gioco
 
-Il Promo Studio non modifica il gioco. Tre cose vanno però fatte lì, con una issue sul Project #2:
+Il Promo Studio non modifica il gioco. Quattro cose vanno però fatte lì, con una issue sul Project #2:
 
 1. **`CAMPAIGN_SOURCES`** in `services/product_analytics.py` non contiene `telegram_channel`: finché non
    viene aggiunto, chi arriva da `?start=src_telegram_channel` è contato come `other`.
@@ -347,6 +387,9 @@ Il Promo Studio non modifica il gioco. Tre cose vanno però fatte lì, con una i
 3. **Documentazione**: `docs/firestore.md` (nuova collection `promo_posts`, accesso solo server/admin),
    `docs/README.md` e `docs/architecture.md` (link a questo documento). `firestore.rules` non va toccato:
    nega già tutto ai client e l'Admin SDK le ignora.
+4. **`campaign_id` nel parametro `/start`** (michelecoppi/guess_the_player_from_the_path#218): il bot deve
+   leggere `src_<canale>-<campaign_id>` attribuendo il giocatore al canale e alla campagna. Solo dopo
+   si accende `PROMO_CAMPAIGN_LINKS`.
 
 ## Stato delle milestone
 

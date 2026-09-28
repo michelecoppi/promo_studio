@@ -93,11 +93,18 @@ def _source_days(cards) -> list:
 
 
 def make_post(*, fmt: str, lang: str, channel: str, cards: list, day: str, media, seed: str,
-              now: Optional[datetime] = None, origin: Optional[str] = None) -> dict:
-    texts = promo_copy.build(fmt, lang, channel, cards, seed=seed)
+              now: Optional[datetime] = None, origin: Optional[str] = None, brief: Optional[dict] = None,
+              campaign_links: bool = False) -> dict:
+    """`brief`: il brief del supervisore da cui nasce la bozza (promo/briefs.py). Ne prende
+    l'id della campagna (nell'id del post e, con `campaign_links`, nel link) e conserva CTA,
+    angolo e fatti per chi approva; la didascalia resta quella dei template."""
+    campaign_id = (brief or {}).get("campaign_id") or ""
+    texts = promo_copy.build(fmt, lang, channel, cards, seed=seed,
+                             campaign_id=campaign_id if campaign_links else "")
     origin = origin or (day if fmt == "ladder" else cards[0].origin)
+    pid = post_id(origin, fmt, lang, channel)
     return {
-        "id": post_id(origin, fmt, lang, channel),
+        "id": f"{pid}-{campaign_id}" if campaign_id else pid,
         "status": STATUS_DRAFT,
         "format": fmt,
         "language": lang,
@@ -112,6 +119,8 @@ def make_post(*, fmt: str, lang: str, channel: str, cards: list, day: str, media
         "hashtags": texts.hashtags,
         "pinned_comment": texts.pinned_comment,
         "tracking_link": texts.tracking_link,
+        "brief_id": campaign_id or None,
+        "brief": {key: brief.get(key) for key in ("cta", "angle", "facts")} if brief else None,
         "scheduled_for": scheduled_for(day),
         "created_for": day,
         "created_at": now_iso(now),
@@ -148,8 +157,9 @@ def generate_drafts(settings, game, store: PostStore, theme, *, day: Optional[st
     for lang in settings.languages:
         channels = channels_for(settings, lang)
         seed = f"{day}|{lang}"
+        # Le bozze nate da un brief non contano: la rotazione del giorno esce comunque.
         already = [p for p in existing if p.get("created_for") == day and p.get("language") == lang
-                   and p.get("format") != "solution"]
+                   and p.get("format") != "solution" and not p.get("brief_id")]
         if already:
             lines.append(f"{lang}: bozze del {day} gia' presenti ({', '.join(sorted(p['id'] for p in already))})")
         else:

@@ -219,6 +219,13 @@ def _draft_card(store, post, actor, theme, settings):
                    f"sorgenti {', '.join(post.get('source_days') or [])}")
         if post.get("error"):
             st.error(f"Ultimo errore: {post['error']}")
+        if post.get("brief_id"):
+            brief = post.get("brief") or {}
+            lines = [f"**Brief del supervisore** · campagna `{post['brief_id']}`"]
+            lines += [f"- {label}: {brief[key]}" for key, label in (("angle", "angolo"), ("cta", "CTA"))
+                      if brief.get(key)]
+            lines += [f"- fatto: {fact}" for fact in brief.get("facts") or []]
+            st.info("\n".join(lines))
         with st.form(f"copy-{post['id']}"):
             caption = st.text_area("Didascalia", value=post.get("caption", ""), max_chars=queue.MAX_CAPTION)
             hashtags = st.text_input("Hashtag (3-5, separati da spazio)", value=" ".join(post.get("hashtags") or []))

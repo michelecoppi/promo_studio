@@ -8,6 +8,10 @@ Il link porta `?start=src_<canale>`: e' cosi' che il bot attribuisce il nuovo gi
 canale (handlers/start_handler.py nel gioco). Un valore che il bot non conosce viene contato
 come "other", quindi `check_sources()` segnala i canali non ancora registrati in
 `services/product_analytics.py::CAMPAIGN_SOURCES`.
+
+Le bozze nate da un brief del supervisore (promo/briefs.py) possono portare anche la campagna:
+`?start=src_<canale>-<campaign_id>`. Solo se il gioco la sa leggere (`PROMO_CAMPAIGN_LINKS`),
+altrimenti il link resta `src_<canale>` e la campagna vive solo nel campo `brief_id` del post.
 """
 import random
 
@@ -27,9 +31,10 @@ SOURCE_FOR_CHANNEL = {
 }
 
 
-def tracking_link(channel: str) -> str:
+def tracking_link(channel: str, campaign_id: str = "") -> str:
     source = SOURCE_FOR_CHANNEL.get(channel, channel)
-    return f"https://t.me/{BOT_USERNAME}?start=src_{source}"
+    suffix = f"-{campaign_id}" if campaign_id else ""
+    return f"https://t.me/{BOT_USERNAME}?start=src_{source}{suffix}"
 
 
 def check_sources(campaign_sources, channels=None) -> list:
@@ -52,12 +57,15 @@ def _names(cards) -> str:
     return ", ".join(f"{i}) {card.player_name}" for i, card in enumerate(cards, start=1))
 
 
-def build(fmt: str, lang: str, channel: str, cards: list, *, seed: str = "", sponsored: bool = False) -> Copy:
-    """I testi di un contenuto. `cards` e' una lista: un percorso, o quattro per `ladder`."""
+def build(fmt: str, lang: str, channel: str, cards: list, *, seed: str = "", sponsored: bool = False,
+          campaign_id: str = "") -> Copy:
+    """I testi di un contenuto. `cards` e' una lista: un percorso, o quattro per `ladder`.
+
+    `campaign_id` cambia solo il link tracciato: didascalia e commento restano dai template."""
     texts = catalog.copy(lang)
     rng = random.Random(f"{seed}|copy|{fmt}|{lang}|{channel}")
     card: Card = cards[0]
-    link = tracking_link(channel)
+    link = tracking_link(channel, campaign_id)
     values = {
         "n": len(card.stops),
         "p": card.percent_solved if card.percent_solved is not None else "",
