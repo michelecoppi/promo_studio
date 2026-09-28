@@ -1,7 +1,9 @@
 # Dipendenze proprie del Promo Studio. Quelle del gioco (firebase-admin, ecc.) si installano
 # dal suo repository: pip install -r "$GAME_REPO_PATH/requirements.txt" (vedi docs/promo-studio.md).
-Pillow==12.3.0
+# I pacchetti in comune con il gioco hanno un intervallo e non una versione fissa: nel workflow
+# vince la versione fissata dal gioco, cosi' un suo aggiornamento non blocca l'installazione.
+Pillow>=12.3.0,<13
 imageio-ffmpeg==0.6.0
-requests==2.34.2
-python-dotenv==1.0.1
-tzdata==2024.1
+requests>=2.34.2,<3
+python-dotenv>=1.0.1,<2
+tzdata>=2024.1
