@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
           cache: pip
@@ -21,3 +21,20 @@ jobs:
       - run: pip install -r requirements-dev.txt -r requirements-admin.txt
       - run: ruff check .
       - run: python -m pytest -q
+
+      # Se un passo fallisce: avviso diretto all'admin sul bot approvazioni (issue #3). Con curl e non con
+      # Python, cosi' funziona anche quando e' l'installazione a rompersi. Nessun effetto se il job
+      # riesce o viene annullato, o se il bot non e' configurato.
+      - name: Avviso di errore su Telegram
+        if: failure() && github.ref == 'refs/heads/main'
+        env:
+          TG_TOKEN: ${{ secrets.PROMO_APPROVAL_BOT_TOKEN }}
+          TG_CHAT: ${{ vars.PROMO_ADMIN_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WHAT: "CI"
+        run: |
+          [ -n "$TG_TOKEN" ] && [ -n "$TG_CHAT" ] || exit 0
+          text=$(printf '❌ <b>Promo · %s fallito</b>\n<a href="%s">Apri la run</a>' "$WHAT" "$RUN_URL")
+          curl -s -o /dev/null -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$TG_CHAT" --data-urlencode "text=$text" \
+            -d parse_mode=HTML -d disable_web_page_preview=true || true
