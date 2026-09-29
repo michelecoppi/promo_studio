@@ -5,5 +5,5 @@
 Pillow>=12.3.0,<13
 imageio-ffmpeg==0.6.0
 requests>=2.34.2,<3
-python-dotenv>=1.0.1,<2
+python-dotenv>=1.2.3,<2
 tzdata>=2024.1
