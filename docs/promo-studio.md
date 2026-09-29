@@ -248,9 +248,21 @@ python -m promo approval-webhook --set "$(gcloud run services describe promo-app
 ```
 
 `python -m promo approval-webhook` mostra lo stato, `--delete` torna a `sync-approvals`. I pulsanti premuti
-prima del collegamento non si perdono: Telegram li consegna al webhook appena collegato. Per aggiornare il
-servizio dopo una modifica al codice basta ripetere il passo 3. Chi approva risulta come
-`PROMO_ADMIN_NAME` (da aggiungere a `--set-env-vars` se serve) o lo username Telegram.
+prima del collegamento non si perdono: Telegram li consegna al webhook appena collegato. Chi approva
+risulta come `PROMO_ADMIN_NAME` (da aggiungere a `--set-env-vars` se serve) o lo username Telegram.
+
+Per aggiornare il servizio dopo una modifica al codice (per esempio i pulsanti dei brief del supervisore),
+da una checkout aggiornata di `main`:
+
+```bash
+gcloud run deploy promo-approvals --project $PROJECT --region europe-west1 --source .
+```
+
+Senza `--set-env-vars` e `--set-secrets` il deploy tiene variabili e segreti già configurati. **Non** ripetere
+il passo 3 com'è: `--set-*` sostituisce tutto e toglierebbe `PROMO_DISPATCH_INVOKER`,
+`PROMO_DISPATCH_AUDIENCE` e `PROMO_GITHUB_DISPATCH_TOKEN` (Cloud Scheduler, vedi
+[Pianificazione](#pianificazione-cloud-scheduler--github-actions)). L'indirizzo del servizio non cambia,
+quindi il webhook non va ricollegato.
 
 **Dove stanno i video.** Prima versione: disco locale (`PROMO_MEDIA_DIR`) e artifact di GitHub Actions
 (14 giorni). Il file non deve viaggiare fra macchine: se manca, admin e publisher lo rigenerano da
@@ -353,8 +365,8 @@ bozze senza toccare la coda.
      --member="serviceAccount:<SERVICE_ACCOUNT_DI_PROMO>" --role="roles/datastore.viewer" --condition=None
    ```
 3. merge di questa funzione in Promo;
-4. nuovo deploy di `promo-approvals` (passo 3 di "Approvazione immediata"), perché il webhook conosca i
-   pulsanti `brief:`;
+4. nuovo deploy di `promo-approvals` (solo `--source .`, vedi la fine di "Approvazione immediata"), perché
+   il webhook conosca i pulsanti `brief:`;
 5. solo dopo il deploy, la variabile del repository `PROMO_SUPERVISOR_FIRESTORE_PROJECT=gtp-orchestrator`.
    Con il vecchio webhook un tocco su ✅ Usa / ❌ Scarta verrebbe preso per il pulsante di un post
    sparito: il messaggio perderebbe i pulsanti e il brief resterebbe `asked`.
