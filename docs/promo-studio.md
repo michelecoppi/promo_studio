@@ -182,7 +182,16 @@ Campi (oltre a quelli della specifica §6): `created_for` (giorno di uscita), `c
 `approval_message_id` (il messaggio Telegram con i pulsanti, vedi sotto),
 `render_spec` (le schede usate, per rigenerare il video identico), `brief_id` e `brief` (solo per le
 bozze nate da un [brief del supervisore](#brief-del-supervisore), altrimenti `null`). Le date sono
-stringhe ISO 8601 UTC.
+stringhe ISO 8601 UTC al secondo con `Z` (`store.now_iso`, es. `2026-09-24T10:30:00Z`).
+
+**Contratto versionato:** [`docs/schemas/promo_post.v1.json`](schemas/promo_post.v1.json) (JSON Schema
+2020-12) descrive stati, campi obbligatori e opzionali, tipi e formato delle date. Lo legge il supervisore
+(gtp_orchestrator), che ne tiene una copia fissata a uno SHA e ci valida le sue fixture.
+`tests/test_post_schema.py` valida contro lo schema i post veri di `make_post`, ogni transizione di `queue`,
+la pubblicazione e `approval_message_id`: se si cambia un campo senza aggiornare lo schema, la CI fallisce.
+Aggiungere un campo opzionale non richiede una nuova versione (`additionalProperties` è ammesso);
+togliere o rinominare un campo, cambiarne il tipo o cambiare gli stati richiede `promo_post.v2.json` e
+un'issue su `gtp_orchestrator`.
 
 ### Approvare da Telegram
 

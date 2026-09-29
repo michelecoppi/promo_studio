@@ -72,3 +72,5 @@ documenti sono la mappa.
 - **Consumatori di `promo_posts`:** il supervisore `michelecoppi/gtp_orchestrator` legge la collezione in
   sola lettura. Cambiare stati o campi (`status`, `created_for`, `scheduled_for`, `published_at`,
   `history`, …) va segnalato con un'issue su `gtp_orchestrator`, citata nella PR.
+  Il contratto è [`docs/schemas/promo_post.v1.json`](docs/schemas/promo_post.v1.json), verificato da
+  `tests/test_post_schema.py`: si aggiorna nella stessa PR del cambio.
