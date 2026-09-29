@@ -38,8 +38,8 @@ indicata da `GAME_REPO_PATH`:
 | `services/career_order.py`, `services/content_i18n.py::localize_career` | ordine e traduzione delle tappe |
 | `services/difficulty.py::compute_difficulty` | fasce della scala (`ladder`) |
 | `services/path_image.py` (`_color_for_team`, `_years_label`, palette) | coerenza grafica con il bot |
-| `webapp/src/assets/fonts/BarlowCondensed-SemiBold.ttf`, `services/fonts.py` | font dei titoli e di ripiego |
-| `services/product_analytics_query.py`, `services/product_analytics.py::CAMPAIGN_SOURCES` | report e link `src_` |
+| `webapp/src/assets/fonts/BarlowCondensed-SemiBold.woff2` (o `.ttf`, se c'è), `services/fonts.py` | font dei titoli e di ripiego |
+| `services/product_analytics_query.py` (`run_hogql`, `QueryError`), `services/product_analytics.py::CAMPAIGN_SOURCES` | report e link `src_` |
 | `services/observability.py::scrub_text` | log senza segreti |
 
 Il resto del pacchetto non importa mai `services.*`: i test girano con un gioco finto (`tests/fakes.py`),

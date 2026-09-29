@@ -27,7 +27,13 @@ DEFAULT_PALETTE = {
     "accent": (56, 189, 130),
 }
 
-TITLE_FONT_RELATIVE = Path("webapp/src/assets/fonts/BarlowCondensed-SemiBold.ttf")
+# Font dei titoli, relativo alla checkout del gioco: il primo che esiste. Il gioco oggi ha solo il
+# `.woff2` della Mini App; Pillow lo apre con `ImageFont.truetype` come un `.ttf` (FreeType), su
+# Windows e su Linux. Il `.ttf` resta primo nel caso il gioco lo aggiunga.
+TITLE_FONT_CANDIDATES = (
+    Path("webapp/src/assets/fonts/BarlowCondensed-SemiBold.ttf"),
+    Path("webapp/src/assets/fonts/BarlowCondensed-SemiBold.woff2"),
+)
 
 
 class GameUnavailable(RuntimeError):
@@ -169,8 +175,8 @@ class GameRepo:
         )
 
     def title_font_path(self) -> Optional[str]:
-        candidate = self.path / TITLE_FONT_RELATIVE
-        return str(candidate) if candidate.exists() else None
+        found = (self.path / relative for relative in TITLE_FONT_CANDIDATES)
+        return next((str(candidate) for candidate in found if candidate.is_file()), None)
 
     def text_font_path(self) -> Optional[str]:
         from services import fonts
@@ -184,7 +190,7 @@ class GameRepo:
     def hogql(self, query: str) -> list:
         from services import product_analytics_query as paq
         try:
-            return paq._run_hogql(paq.settings(), query)
+            return paq.run_hogql(query)
         except paq.QueryError as e:
             raise AnalyticsError(str(e)) from e
 
