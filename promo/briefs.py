@@ -21,15 +21,14 @@ from typing import Optional
 
 from promo import plan, render
 from promo.config import LANGUAGES
-from promo.copy import SOURCE_FOR_CHANNEL
 from promo.models import CHANNELS, FORMATS
 from promo.store import PostStore
 
 # La soluzione nasce solo dall'indovinello del giorno prima: non si chiede con un brief.
 BRIEF_FORMATS = tuple(f for f in FORMATS if f != "solution")
-# Il parametro `start` di Telegram: al massimo 64 caratteri fra A-Z, a-z, 0-9, _ e -.
-START_PARAM_MAX = 64
-_CAMPAIGN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+# La regola del gioco (`CAMPAIGN_ID` in services/product_analytics.py, #218): una campagna fuori
+# regola viene scartata in silenzio e il giocatore finisce attribuito al solo canale.
+_CAMPAIGN_ID = re.compile(r"^[a-z0-9-]{1,24}$")
 
 
 class BriefError(ValueError):
@@ -60,15 +59,11 @@ def validate(data) -> dict:
     if not campaign_id:
         raise BriefError("manca 'campaign_id'")
     if not _CAMPAIGN_ID.match(campaign_id):
-        raise BriefError(f"'campaign_id' = {campaign_id!r}: solo lettere, cifre, '_' e '-' "
-                         "(e deve iniziare con una lettera o una cifra)")
+        raise BriefError(f"'campaign_id' = {campaign_id!r}: al massimo 24 caratteri fra lettere "
+                         "minuscole, cifre e '-' (niente maiuscole ne' '_': il gioco li scarta)")
     language = _choice(data, "language", LANGUAGES)
     fmt = _choice(data, "format", BRIEF_FORMATS)
     channel = _choice(data, "channel", CHANNELS)
-    start = f"src_{SOURCE_FOR_CHANNEL.get(channel, channel)}-{campaign_id}"
-    if len(start) > START_PARAM_MAX:
-        raise BriefError(f"'campaign_id' troppo lungo: il parametro del link ({start}) supera "
-                         f"{START_PARAM_MAX} caratteri")
     facts = data.get("facts") or []
     if not isinstance(facts, list) or not all(isinstance(f, str) for f in facts):
         raise BriefError("'facts' deve essere una lista di testi")

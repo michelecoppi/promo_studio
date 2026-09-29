@@ -215,7 +215,7 @@ Il supervisore (gtp_orchestrator, M4) prepara ogni settimana dei brief; ognuno d
 
 ```json
 {
-  "campaign_id": "2026w40_it_tiktok",
+  "campaign_id": "2026w40-it-tiktok",
   "language": "it",
   "format": "who_is",
   "channel": "tiktok",
@@ -229,8 +229,8 @@ Il supervisore (gtp_orchestrator, M4) prepara ogni settimana dei brief; ognuno d
 - `language` fra `it`, `en`, `es`; `format` fra `who_is`, `percent`, `ladder`, `journeyman` (la
   `solution` nasce solo dall'indovinello del giorno prima); `channel` fra `tiktok`, `telegram_channel`,
   `x`. Un valore fuori elenco è rifiutato con l'elenco di quelli ammessi, e niente viene scritto.
-- `campaign_id`: lettere, cifre, `_` e `-`; con il prefisso `src_<canale>-` deve stare nei 64 caratteri
-  del parametro `start` di Telegram. `day` è facoltativo (default: oggi; `--day` ha la precedenza).
+- `campaign_id`: da 1 a 24 caratteri fra lettere minuscole, cifre e `-` — la stessa regola del gioco
+  (`CAMPAIGN_ID`, #218), che altrimenti scarta la campagna in silenzio. Niente maiuscole né `_`. `day` è facoltativo (default: oggi; `--day` ha la precedenza).
 - La bozza usa formato e lingua del brief; le schede le sceglie il picker con le stesse regole
   anti-spoiler e la stessa esclusione degli ultimi 30 giorni. Se il formato non ha materiale si ripiega
   su `who_is`, come nella rotazione.
@@ -239,8 +239,8 @@ Il supervisore (gtp_orchestrator, M4) prepara ogni settimana dei brief; ognuno d
 - Il post ha id `<id consueto>-<campaign_id>` e `brief_id` = `campaign_id`. Stesso `campaign_id` e stesso
   giorno → nessun doppione. Le bozze da brief non tolgono la bozza della rotazione di quel giorno.
 - Link tracciato: con `PROMO_CAMPAIGN_LINKS=true` è `https://t.me/<bot>?start=src_<canale>-<campaign_id>`;
-  senza (default) resta `src_<canale>`, finché il gioco non sa leggere la campagna
-  (michelecoppi/guess_the_player_from_the_path#218).
+  senza (default) resta `src_<canale>`. Il gioco legge la campagna da
+  michelecoppi/guess_the_player_from_the_path#218: il flag va acceso quando quel bot è in produzione.
 - La macchina a stati non cambia: la bozza nasce `draft` e l'approvazione resta umana.
 
 ## Pubblicazione
