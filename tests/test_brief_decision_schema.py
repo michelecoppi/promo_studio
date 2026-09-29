@@ -1,4 +1,4 @@
-"""Il contratto di `promo_brief_decisions` (docs/schemas/promo_brief_decision.v1.json) contro i documenti veri.
+"""Il contratto di `promo_brief_decisions` (docs/schemas/promo_brief_decision.v1.json) sui documenti veri.
 
 Il supervisore (michelecoppi/gtp_orchestrator, collector Promo) legge le decisioni sui suoi brief in sola
 lettura e valida le sue fixture contro una copia di questo schema. Qui si controlla l'altro lato: ogni
@@ -90,7 +90,8 @@ def test_asking_left_by_a_crash_is_valid(tmp_path):
 
     decisions = MemoryStore()
     with pytest.raises(KeyboardInterrupt):
-        supervisor_briefs.ask(source(), decisions, approvals.build_bot(make_settings(tmp_path), Crash()), now=NOW)
+        bot = approvals.build_bot(make_settings(tmp_path), Crash())
+        supervisor_briefs.ask(source(), decisions, bot, now=NOW)
     stuck = decisions.get(CID)
     assert stuck["status"] == "asking" and stuck["message_id"] is None
     assert_valid(stuck)
