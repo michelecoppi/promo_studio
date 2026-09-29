@@ -427,6 +427,13 @@ Il service account ha bisogno di: lettura/scrittura Firestore (`roles/datastore.
 `secretmanager.versions.access` + `secretmanager.versions.add` sul solo segreto del refresh token.
 
 `workflow_dispatch` permette di lanciare a mano `drafts`, `publish`, `report` o `sync` (di default in `--dry-run`).
+
+**Se un lavoro fallisce.** Ogni job (`promo.yml` e, solo su `main`, `ci.yml`) termina con il passo "Avviso di
+errore su Telegram". Manda all'admin `❌ Promo · lavoro <drafts|publish|report> fallito` con il link alla run,
+tramite il bot approvazioni (`PROMO_APPROVAL_BOT_TOKEN`, `PROMO_ADMIN_CHAT_ID`). Usa `curl`, quindi funziona
+anche se si rompe l'installazione; senza il bot non fa nulla. Le action sono fissate allo SHA completo
+(`uses: owner/action@<sha> # vN`); `.github/dependabot.yml` propone ogni settimana gli aggiornamenti di action
+e dipendenze pip.
 Cron locale equivalente: `37 8 * * *  python -m promo drafts`, `23 12 * * *  python -m promo publish`,
 `17 9 * * 5  python -m promo report --notify`.
 
