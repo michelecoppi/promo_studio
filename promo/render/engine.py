@@ -103,9 +103,17 @@ class Canvas:
         self.theme = theme
         self.boxes = boxes
 
+    def ink(self, text: str, font) -> tuple:
+        """Dove cade l'inchiostro rispetto al punto di partenza: (sinistra, larghezza).
+
+        La larghezza tipografica (`textlength`) non conta i glifi che sporgono, e con alcuni
+        font il testo finirebbe un pixel fuori dalla zona sicura."""
+        left, _, right, _ = self.draw.textbbox((0, 0), text, font=font)
+        return left, right - left
+
     def fit(self, text: str, size: int, max_width: int, title: bool = True):
         font = self.theme.font(size, title)
-        while size > 12 and self.draw.textlength(text, font=font) > max_width:
+        while size > 12 and self.ink(text, font)[1] > max_width:
             size = int(size * 0.94)
             font = self.theme.font(size, title)
         return font
@@ -123,10 +131,10 @@ class Canvas:
     def centered(self, y: float, text: str, size: int, fill=None, *, alpha: float = 1.0,
                  title: bool = True, max_width: Optional[int] = None) -> None:
         fill = fill or self.theme.palette["text"]
-        max_width = max_width or (SAFE_RIGHT - SAFE_LEFT)
+        max_width = max_width or (SAFE_RIGHT - SAFE_LEFT - 2)  # 2 px per gli arrotondamenti
         font = self.fit(text, size, max_width, title)
-        width = self.draw.textlength(text, font=font)
-        self.text((SAFE_CENTER_X - width / 2, y), text, font, fill, alpha)
+        left, width = self.ink(text, font)
+        self.text((SAFE_CENTER_X - width / 2 - left, y), text, font, fill, alpha)
 
 
 @dataclass
