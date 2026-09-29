@@ -1,0 +1,5 @@
+# Nel container entra solo quello che copia il Dockerfile; il resto non deve nemmeno partire.
+*
+!requirements-approvals.txt
+!promo/
+promo/**/__pycache__

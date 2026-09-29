@@ -1,0 +1,96 @@
+"""Il webhook delle approvazioni: Telegram lo chiama appena l'admin preme ✅ o ❌.
+
+Gira su Cloud Run (vedi `Dockerfile` e docs/promo-studio.md, "Approvazione immediata"),
+separato dal gioco e senza il suo repository: gli servono solo Firestore e il bot di
+approvazione. La decisione passa da `approvals.handle_press`, la stessa di `sync`, con gli
+stessi controlli (solo l'admin, solo post ancora in bozza).
+
+Il servizio e' pubblico perche' Telegram non sa autenticarsi con Google: lo protegge il
+segreto che Telegram rimanda in `X-Telegram-Bot-Api-Secret-Token` (impostato con
+`python -m promo approval-webhook --set`). Senza segreto configurato rifiuta tutto.
+
+    gunicorn --bind :$PORT "promo.approval_service:create_app()"
+"""
+import hmac
+import json
+from threading import Lock
+from typing import Callable
+
+from promo import approvals, config, log
+from promo.store import FirestoreStore
+
+SECRET_HEADER = "HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"
+MAX_BODY = 64 * 1024
+
+
+def _reply(start_response, status: str, body: str = ""):
+    data = body.encode("utf-8")
+    start_response(status, [("Content-Type", "text/plain; charset=utf-8"), ("Content-Length", str(len(data)))])
+    return [data]
+
+
+def make_app(settings, store_factory: Callable, bot_factory: Callable = approvals.build_bot):
+    """L'app WSGI. Store e bot si creano alla prima richiesta, e una volta sola."""
+    state, lock = {}, Lock()
+
+    def deps():
+        with lock:
+            if not state:
+                state["store"] = store_factory()
+                state["bot"] = bot_factory(settings)
+        return state["store"], state["bot"]
+
+    def app(environ, start_response):
+        if environ.get("REQUEST_METHOD") == "GET":
+            return _reply(start_response, "200 OK", "ok")  # controllo di salute di Cloud Run
+        if environ.get("REQUEST_METHOD") != "POST":
+            return _reply(start_response, "405 Method Not Allowed")
+        secret = settings.approval_webhook_secret
+        given = environ.get(SECRET_HEADER, "")
+        if not secret or not hmac.compare_digest(given.encode("utf-8"), secret.encode("utf-8")):
+            log.warning("webhook: richiesta senza il segreto giusto, rifiutata")
+            return _reply(start_response, "403 Forbidden")
+        try:
+            length = int(environ.get("CONTENT_LENGTH") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > MAX_BODY:
+            return _reply(start_response, "400 Bad Request")
+        try:
+            update = json.loads(environ["wsgi.input"].read(length))
+        except (ValueError, UnicodeDecodeError):
+            return _reply(start_response, "400 Bad Request")
+
+        callback = update.get("callback_query") if isinstance(update, dict) else None
+        if not callback:
+            return _reply(start_response, "200 OK")  # altro che pulsanti: niente da fare
+        store, bot = deps()
+        if bot is None:
+            log.warning("webhook: mancano PROMO_APPROVAL_BOT_TOKEN o PROMO_ADMIN_CHAT_ID")
+            return _reply(start_response, "503 Service Unavailable")
+        try:
+            for line in approvals.handle_press(store, bot, settings, callback):
+                log.info("webhook: %s", line)
+        except Exception as e:  # Telegram riprova: handle_press e' idempotente
+            log.warning("webhook: pulsante non applicato (%s)", log.scrub(e))
+            return _reply(start_response, "500 Internal Server Error")
+        return _reply(start_response, "200 OK")
+
+    return app
+
+
+def firestore_store() -> FirestoreStore:
+    """Firestore del progetto in cui gira il servizio, con l'identita' di Cloud Run."""
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.ApplicationDefault())
+    return FirestoreStore(firestore.client())
+
+
+def create_app():
+    log.configure()
+    settings = config.load()
+    log.register_secrets(settings.secret_values())
+    return make_app(settings, firestore_store)

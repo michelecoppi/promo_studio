@@ -1,0 +1,8 @@
+# Cosa carica `gcloud run deploy --source .`: solo il necessario per il Dockerfile.
+# Mai .env, chiavi o dati operativi.
+/*
+!/Dockerfile
+!/.dockerignore
+!/requirements-approvals.txt
+!/promo/
+__pycache__/

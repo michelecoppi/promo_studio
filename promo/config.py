@@ -15,7 +15,7 @@ LANGUAGES = ("it", "en", "es")
 DEFAULT_LANGUAGES = LANGUAGES
 
 _SECRET_FIELDS = frozenset({
-    "bot_token", "approval_bot_token", "tiktok_client_key", "tiktok_client_secret", "tiktok_refresh_token",
+    "bot_token", "approval_bot_token", "approval_webhook_secret", "tiktok_client_key", "tiktok_client_secret", "tiktok_refresh_token",
 })
 
 
@@ -41,6 +41,8 @@ class Settings:
     bot_token: str = ""
     # Bot dedicato alle approvazioni (promo/approvals.py), non quello del gioco.
     approval_bot_token: str = ""
+    # Il segreto che Telegram rimanda al webhook delle approvazioni (promo/approval_service.py).
+    approval_webhook_secret: str = ""
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
     tiktok_refresh_token: str = ""
@@ -74,6 +76,7 @@ class Settings:
             admin_name=(env.get("PROMO_ADMIN_NAME") or "").strip(),
             bot_token=(env.get("BOT_TOKEN") or "").strip(),
             approval_bot_token=(env.get("PROMO_APPROVAL_BOT_TOKEN") or "").strip(),
+            approval_webhook_secret=(env.get("PROMO_APPROVAL_WEBHOOK_SECRET") or "").strip(),
             tiktok_client_key=(env.get("TIKTOK_CLIENT_KEY") or "").strip(),
             tiktok_client_secret=(env.get("TIKTOK_CLIENT_SECRET") or "").strip(),
             tiktok_refresh_token=(env.get("TIKTOK_REFRESH_TOKEN") or "").strip(),

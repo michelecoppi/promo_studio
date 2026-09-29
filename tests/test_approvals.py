@@ -24,6 +24,7 @@ class TelegramFake:
         self.pending = list(pending or [])
         self.calls = []
         self.next_message_id = 100
+        self.webhook = ""
 
     def post(self, url, **kwargs):
         method = url.rsplit("/", 1)[-1]
@@ -32,6 +33,12 @@ class TelegramFake:
         if method == "sendVideo":
             self.next_message_id += 1
             return Response({"ok": True, "result": {"message_id": self.next_message_id}})
+        if method == "getWebhookInfo":
+            return Response({"ok": True, "result": {"url": self.webhook}})
+        if method == "setWebhook":
+            self.webhook = data["url"]
+        if method == "deleteWebhook":
+            self.webhook = ""
         if method == "getUpdates":
             if "offset" in data:
                 self.pending = [u for u in self.pending if u["update_id"] >= data["offset"]]
@@ -172,3 +179,28 @@ def test_publish_result_reaches_the_admin_only_when_something_happened(tmp_path)
     approvals.report_published(bot, ["it-telegram: pubblicato (https://t.me/gtp/1)"])
     texts = fake.sent("sendMessage")
     assert len(texts) == 1 and "pubblicato" in texts[0]["text"] and texts[0]["chat_id"] == ADMIN
+
+
+def test_sync_steps_aside_when_the_webhook_is_active(tmp_path):
+    store, fake = morning(tmp_path), TelegramFake()
+    s = make_settings(tmp_path)
+    approvals.ask(store, approvals.build_bot(s, fake), None, s, now=early())
+    fake.pending = [press(1, store.get("it-tiktok")["approval_message_id"], "ok")]
+    fake.webhook = "https://promo-approvals.example.run.app/"
+
+    lines = approvals.sync(store, approvals.build_bot(s, fake), s)
+
+    assert "webhook attivo" in lines[0]
+    assert store.get("it-tiktok")["status"] == "draft"
+    assert not fake.sent("getUpdates")  # con il webhook Telegram lo rifiuterebbe
+
+
+def test_webhook_is_set_with_the_secret_and_only_for_buttons(tmp_path):
+    fake = TelegramFake()
+    bot = approvals.build_bot(make_settings(tmp_path), fake)
+    bot.set_webhook("https://promo-approvals.example.run.app/", "s3cret")
+    sent = fake.sent("setWebhook")[0]
+    assert sent["secret_token"] == "s3cret" and json.loads(sent["allowed_updates"]) == ["callback_query"]
+    assert bot.webhook_url() == "https://promo-approvals.example.run.app/"
+    bot.delete_webhook()
+    assert bot.webhook_url() == ""

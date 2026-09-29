@@ -5,12 +5,17 @@ Il workflow non e' un bot sempre acceso, quindi si lavora in due tempi:
 1. `ask` (dopo le bozze delle 08:37): ogni video in attesa arriva all'admin
    (`PROMO_ADMIN_CHAT_ID`) con didascalia e due pulsanti, ✅ Approva e ❌ Rifiuta. Un video vale
    per tutti i canali della sua lingua (TikTok e canale Telegram), come in dashboard.
-2. `sync` (ogni mezz'ora fino alle 12:45 e prima di pubblicare): legge i pulsanti premuti
-   con `getUpdates`, porta i post in `approved`/`rejected` e aggiorna il messaggio.
+2. il pulsante premuto porta i post in `approved`/`rejected` e aggiorna il messaggio
+   (`handle_press`). Arriva in due modi:
+   - **webhook** (promo/approval_service.py, su Cloud Run): Telegram lo chiama appena l'admin
+     preme, e la decisione e' immediata;
+   - **`sync`** (ogni mezz'ora fino alle 12:45 e prima di pubblicare): legge i pulsanti con
+     `getUpdates`. Serve solo senza webhook: con il webhook attivo Telegram rifiuta
+     `getUpdates`, e `sync` si fa da parte.
 
-Il bot e' separato da quello del gioco perche' quello riceve gia' i messaggi dei giocatori via
-webhook, e `getUpdates` non funziona su un bot con un webhook attivo. Telegram conserva i
-pulsanti premuti per 24 ore: tra le 08:37 e le 12:23 ne passano meno di quattro.
+Il bot e' separato da quello del gioco perche' quello riceve gia' i messaggi dei giocatori sul
+suo webhook. Telegram conserva i pulsanti premuti per 24 ore: tra le 08:37 e le 12:23 ne
+passano meno di quattro.
 
 Contano solo i pulsanti premuti dall'admin, nella sua chat: chiunque altro scriva al bot viene
 ignorato. Approvare resta un'azione umana (`queue.approve` con il nome di chi ha premuto).
@@ -70,6 +75,17 @@ class ApprovalBot:
         """Segna come letti gli aggiornamenti fino a `last_update_id`: Telegram non li ridara'."""
         self._call("getUpdates", data={"offset": last_update_id + 1, "timeout": 0})
 
+    def webhook_url(self) -> str:
+        return (self._call("getWebhookInfo") or {}).get("url") or ""
+
+    def set_webhook(self, url: str, secret: str) -> None:
+        # Solo i pulsanti: i messaggi scritti al bot non servono a nessuno.
+        self._call("setWebhook", data={"url": url, "secret_token": secret,
+                                       "allowed_updates": '["callback_query"]', "max_connections": "5"})
+
+    def delete_webhook(self) -> None:
+        self._call("deleteWebhook")
+
     def answer(self, callback_id: str, text: str) -> None:
         try:
             self._call("answerCallbackQuery", data={"callback_query_id": callback_id, "text": text[:200]})
@@ -110,7 +126,7 @@ def summary(posts: list) -> str:
 
 def _decision_line(status: str, actor: str) -> str:
     if status == STATUS_APPROVED:
-        return f"✅ Approvato da {actor}: esce alle 12:00."
+        return f"✅ Approvato da {actor}: esce alle 12:23."
     return f"❌ Rifiutato da {actor}."
 
 
@@ -146,50 +162,56 @@ def _actor(settings, user: dict) -> str:
     return user.get("username") or user.get("first_name") or f"telegram:{user.get('id')}"
 
 
+def handle_press(store, bot: ApprovalBot, settings, callback: dict) -> list:
+    """Un pulsante premuto (`callback_query`). Idempotente: un post gia' deciso non cambia."""
+    user = callback.get("from") or {}
+    message = callback.get("message") or {}
+    chat_id = str((message.get("chat") or {}).get("id", ""))
+    if str(user.get("id")) != bot.admin_chat_id or chat_id != bot.admin_chat_id:
+        return [f"pulsante ignorato: non viene dall'admin (utente {user.get('id')})"]
+    choice = callback.get("data")
+    message_id = message.get("message_id")
+    posts = [p for p in store.list() if p.get("approval_message_id") == message_id]
+    if choice not in (APPROVE, REJECT) or not posts:
+        bot.answer(callback["id"], "Post non trovato")
+        return [f"pulsante sul messaggio {message_id}: nessun post"]
+    actor = _actor(settings, user)
+    target = STATUS_APPROVED if choice == APPROVE else STATUS_REJECTED
+    lines, done = [], []
+    for post in posts:
+        if post["status"] != STATUS_DRAFT:
+            lines.append(f"{post['id']}: gia' {post['status']}, lasciato com'e'")
+            continue
+        try:
+            if target == STATUS_APPROVED:
+                queue.approve(store, post["id"], actor)
+            else:
+                queue.reject(store, post["id"], actor, reason="rifiutato da Telegram")
+        except TransitionError as e:
+            lines.append(f"{post['id']}: {e}")
+            continue
+        done.append(post["id"])
+        lines.append(f"{post['id']}: {target} da {actor} (Telegram)")
+    decided = store.get(posts[0]["id"]) or posts[0]
+    bot.answer(callback["id"], "Approvato" if decided["status"] == STATUS_APPROVED else
+               "Rifiutato" if decided["status"] == STATUS_REJECTED else decided["status"])
+    if done:
+        bot.edit_caption(message_id, f"{summary(posts)}\n\n{_decision_line(target, actor)}")
+    return lines
+
+
 def sync(store, bot: ApprovalBot, settings) -> list:
-    """Applica i pulsanti premuti dall'admin. Idempotente: un post gia' deciso non cambia."""
+    """Applica i pulsanti premuti dall'admin e non ancora letti (solo senza webhook)."""
+    if bot.webhook_url():
+        return ["webhook attivo: i pulsanti si applicano appena premuti, niente da leggere"]
     updates = bot.updates()
     if not updates:
         return ["nessuna risposta dall'admin"]
     lines = []
     for update in updates:
         callback = update.get("callback_query")
-        if not callback:
-            continue
-        user = callback.get("from") or {}
-        message = callback.get("message") or {}
-        chat_id = str((message.get("chat") or {}).get("id", ""))
-        if str(user.get("id")) != bot.admin_chat_id or chat_id != bot.admin_chat_id:
-            lines.append(f"pulsante ignorato: non viene dall'admin (utente {user.get('id')})")
-            continue
-        choice = callback.get("data")
-        message_id = message.get("message_id")
-        posts = [p for p in store.list() if p.get("approval_message_id") == message_id]
-        if choice not in (APPROVE, REJECT) or not posts:
-            bot.answer(callback["id"], "Post non trovato")
-            continue
-        actor = _actor(settings, user)
-        target = STATUS_APPROVED if choice == APPROVE else STATUS_REJECTED
-        done = []
-        for post in posts:
-            if post["status"] != STATUS_DRAFT:
-                lines.append(f"{post['id']}: gia' {post['status']}, lasciato com'e'")
-                continue
-            try:
-                if target == STATUS_APPROVED:
-                    queue.approve(store, post["id"], actor)
-                else:
-                    queue.reject(store, post["id"], actor, reason="rifiutato da Telegram")
-            except TransitionError as e:
-                lines.append(f"{post['id']}: {e}")
-                continue
-            done.append(post["id"])
-            lines.append(f"{post['id']}: {target} da {actor} (Telegram)")
-        decided = store.get(posts[0]["id"]) or posts[0]
-        bot.answer(callback["id"], "Approvato" if decided["status"] == STATUS_APPROVED else
-                   "Rifiutato" if decided["status"] == STATUS_REJECTED else decided["status"])
-        if done:
-            bot.edit_caption(message_id, f"{summary(posts)}\n\n{_decision_line(target, actor)}")
+        if callback:
+            lines.extend(handle_press(store, bot, settings, callback))
     bot.confirm(max(u["update_id"] for u in updates))
     return lines or ["nessuna decisione nuova"]
 

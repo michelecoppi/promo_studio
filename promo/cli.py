@@ -9,6 +9,7 @@ Comandi:
   approve / reject / edit-caption   azioni dell'admin (M2)
   ask-approval  manda le bozze all'admin su Telegram, con i pulsanti Approva / Rifiuta
   sync-approvals  applica i pulsanti premuti dall'admin
+  approval-webhook  collega il bot di approvazione al servizio su Cloud Run (pulsanti immediati)
   publish       pubblica gli `approved` in scadenza (M3, M4); --dry-run non chiama nessuno
   report        report settimanale in Markdown (M6)
   doctor        controlla la configurazione
@@ -237,6 +238,25 @@ def cmd_sync_approvals(args, settings) -> int:
     return 0
 
 
+def cmd_approval_webhook(args, settings) -> int:
+    """Collega (o scollega) il bot di approvazione al servizio su Cloud Run."""
+    bot = _approval_bot(settings)
+    if args.set:
+        if not args.set.startswith("https://"):
+            raise ValueError("il webhook deve essere un indirizzo https://")
+        if not settings.approval_webhook_secret:
+            raise ValueError("serve PROMO_APPROVAL_WEBHOOK_SECRET, lo stesso del servizio su Cloud Run")
+        bot.set_webhook(args.set, settings.approval_webhook_secret)
+        print(f"webhook collegato: {args.set} (i pulsanti si applicano appena premuti)")
+    elif args.delete:
+        bot.delete_webhook()
+        print("webhook scollegato: i pulsanti tornano a essere letti da sync-approvals")
+    else:
+        url = bot.webhook_url()
+        print(f"webhook: {url}" if url else "nessun webhook: i pulsanti li legge sync-approvals")
+    return 0
+
+
 def cmd_tiktok_auth(args, settings) -> int:
     """Collega l'account TikTok: link da aprire, indirizzo di ritorno da incollare, token nel .env."""
     from promo import envfile, tiktok_auth
@@ -379,6 +399,12 @@ def parser() -> argparse.ArgumentParser:
     p = sub.add_parser("sync-approvals", help="applica i pulsanti Approva / Rifiuta premuti su Telegram")
     p.add_argument("--at-rome-hour", default="")
     p.set_defaults(func=cmd_sync_approvals)
+
+    p = sub.add_parser("approval-webhook", help="collega il bot di approvazione al servizio su Cloud Run")
+    group = p.add_mutually_exclusive_group()
+    group.add_argument("--set", metavar="URL", help="indirizzo https del servizio (senza: mostra lo stato)")
+    group.add_argument("--delete", action="store_true", help="torna a sync-approvals")
+    p.set_defaults(func=cmd_approval_webhook)
 
     p = sub.add_parser("tiktok-auth", help="collega l'account TikTok (una volta sola)")
     p.add_argument("--env-file", default=".env", help="dove salvare il refresh token")

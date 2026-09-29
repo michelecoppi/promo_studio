@@ -191,16 +191,63 @@ una volta, poi:
 1. dopo le bozze delle 08:37, `python -m promo ask-approval` gli manda ogni video in attesa con
    didascalia, canali e due pulsanti **✅ Approva** / **❌ Rifiuta**. Un video vale per tutti i canali
    della sua lingua (TikTok e canale Telegram);
-2. `python -m promo sync-approvals` (ogni mezz'ora fino alle 11:45 e subito prima di pubblicare) legge i
-   pulsanti premuti con `getUpdates`, porta i post in `approved`/`rejected` e aggiorna il messaggio
-   ("✅ Approvato da …", pulsanti tolti);
+2. il pulsante premuto porta i post in `approved`/`rejected` e aggiorna il messaggio
+   ("✅ Approvato da …", pulsanti tolti). Con il [webhook](#approvazione-immediata-webhook-su-cloud-run)
+   succede subito; senza, lo fa `python -m promo sync-approvals` (ogni mezz'ora fino alle 12:45 e subito
+   prima di pubblicare), che legge i pulsanti con `getUpdates`;
 3. dopo la pubblicazione l'admin riceve l'esito (link ai post o errori).
 
-Il workflow non è un bot sempre acceso, quindi la conferma arriva al giro successivo (al massimo mezz'ora).
-Il bot è separato perché quello del gioco riceve già gli aggiornamenti via webhook, e `getUpdates` non
-funziona con un webhook attivo. Contano solo i pulsanti premuti dall'admin nella sua chat; un post già
+Il bot è separato perché quello del gioco riceve già gli aggiornamenti sul suo webhook. Contano solo i
+pulsanti premuti dall'admin nella sua chat; un post già
 deciso (anche dalla dashboard) non cambia. Chi approva risulta come `PROMO_ADMIN_NAME` o, se non c'è,
 lo username Telegram. Per modificare la didascalia o approvare un solo canale resta la dashboard.
+
+### Approvazione immediata (webhook su Cloud Run)
+
+Senza webhook il pulsante aspetta il giro successivo di `sync-approvals`, che dipende dai cron di GitHub
+(in ritardo o saltati nelle ore di punta). Con il webhook Telegram chiama subito un piccolo servizio,
+`promo/approval_service.py`, che applica la decisione con la stessa logica di `sync` (`handle_press`)
+e aggiorna il messaggio in pochi secondi. Con il webhook attivo `sync-approvals` si fa da parte da solo
+(Telegram rifiuterebbe `getUpdates`), quindi il workflow non va toccato.
+
+Il servizio è separato dal gioco e non usa il suo repository: nel container (`Dockerfile`) entrano solo
+il pacchetto `promo` e `requirements-approvals.txt`; `.gcloudignore` tiene fuori `.env` e chiavi. È
+pubblico perché Telegram non sa autenticarsi con Google: lo protegge il segreto che Telegram rimanda in
+ogni chiamata (`X-Telegram-Bot-Api-Secret-Token`). Senza `PROMO_APPROVAL_WEBHOOK_SECRET` rifiuta tutto.
+
+Una volta sola, dal progetto `guess-the-player-from-path-bot` (stessa regione del gioco):
+
+```bash
+PROJECT=guess-the-player-from-path-bot
+SA=promo-approvals@$PROJECT.iam.gserviceaccount.com
+
+# 1. identità del servizio: solo Firestore e i suoi due segreti
+gcloud iam service-accounts create promo-approvals --project $PROJECT --display-name "Promo Studio: approvazioni"
+gcloud projects add-iam-policy-binding $PROJECT --member serviceAccount:$SA --role roles/datastore.user
+
+# 2. segreti: il token del bot di approvazione e un segreto casuale per il webhook
+printf %s "<token del bot di approvazione>" | gcloud secrets create promo-approval-bot-token --project $PROJECT --data-file=-
+python -c "import secrets; print(secrets.token_urlsafe(32), end='')" | gcloud secrets create promo-approval-webhook-secret --project $PROJECT --data-file=-
+for s in promo-approval-bot-token promo-approval-webhook-secret; do
+  gcloud secrets add-iam-policy-binding $s --project $PROJECT --member serviceAccount:$SA --role roles/secretmanager.secretAccessor
+done
+
+# 3. deploy
+gcloud run deploy promo-approvals --project $PROJECT --region europe-west1 --source . \
+  --service-account $SA --allow-unauthenticated --max-instances 1 --memory 256Mi \
+  --set-env-vars PROMO_ADMIN_CHAT_ID=<chat id dell'admin> \
+  --set-secrets PROMO_APPROVAL_BOT_TOKEN=promo-approval-bot-token:latest,PROMO_APPROVAL_WEBHOOK_SECRET=promo-approval-webhook-secret:latest
+
+# 4. collega il bot al servizio (con token e segreto nell'ambiente)
+export PROMO_APPROVAL_BOT_TOKEN=... PROMO_ADMIN_CHAT_ID=... \
+  PROMO_APPROVAL_WEBHOOK_SECRET=$(gcloud secrets versions access latest --secret promo-approval-webhook-secret --project $PROJECT)
+python -m promo approval-webhook --set "$(gcloud run services describe promo-approvals --project $PROJECT --region europe-west1 --format 'value(status.url)')"
+```
+
+`python -m promo approval-webhook` mostra lo stato, `--delete` torna a `sync-approvals`. I pulsanti premuti
+prima del collegamento non si perdono: Telegram li consegna al webhook appena collegato. Per aggiornare il
+servizio dopo una modifica al codice basta ripetere il passo 3. Chi approva risulta come
+`PROMO_ADMIN_NAME` (da aggiungere a `--set-env-vars` se serve) o lo username Telegram.
 
 **Dove stanno i video.** Prima versione: disco locale (`PROMO_MEDIA_DIR`) e artifact di GitHub Actions
 (14 giorni). Il file non deve viaggiare fra macchine: se manca, admin e publisher lo rigenerano da
