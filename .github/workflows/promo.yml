@@ -2,10 +2,12 @@
 #   ogni giorno 08:37  bozze del giorno (poi le approva una persona)
 #   ogni giorno 12:23  pubblicazione degli approvati
 #   venerdi'    09:17  report settimanale
-#   ogni 30 min 08:15-12:45  approvazioni premute su Telegram (se c'e' il bot di approvazione)
+# Chi avvia i lavori e' Cloud Scheduler (promo/dispatch.py, via workflow_dispatch): i cron di
+# GitHub su questo repository non partono in modo affidabile. Quelli qui sotto restano come
+# riserva solo per bozze e pubblicazione, che sono idempotenti (un doppio avvio non fa danni);
+# il report no, perche' manderebbe due messaggi. Le approvazioni arrivano dal webhook del bot.
 # GitHub usa cron in UTC e non conosce l'ora legale: ogni lavoro ha due cron (CEST e CET) e la
-# CLI decide con --at-rome-hour. I lavori sono idempotenti, quindi un doppio avvio non fa danni.
-# Minuti lontani dall'ora piena e piu' ore accettate: all'ora piena GitHub ritarda o salta i cron.
+# CLI decide con --at-rome-hour.
 # Niente gira senza PROMO_ENABLED=true (variabile del repository).
 name: Promo
 
@@ -15,9 +17,6 @@ on:
     - cron: "37 7 * * *"   # 08:37 CET
     - cron: "23 10 * * *"  # 12:23 CEST
     - cron: "23 11 * * *"  # 12:23 CET
-    - cron: "17 7 * * 5"   # 09:17 CEST, venerdi'
-    - cron: "17 8 * * 5"   # 09:17 CET, venerdi'
-    - cron: "15,45 6-11 * * *"  # ogni mezz'ora, 08:15-12:45 a Roma; mai insieme agli altri (concurrency)
   workflow_dispatch:
     inputs:
       command:
@@ -57,8 +56,6 @@ jobs:
           case "${{ github.event.schedule }}" in
             "37 6 * * *"|"37 7 * * *")   echo "command=drafts"  >> "$GITHUB_OUTPUT"; echo "hours=8,9,10,11" >> "$GITHUB_OUTPUT" ;;
             "23 10 * * *"|"23 11 * * *") echo "command=publish" >> "$GITHUB_OUTPUT"; echo "hours=12,13,14,15" >> "$GITHUB_OUTPUT" ;;
-            "17 7 * * 5"|"17 8 * * 5")   echo "command=report"  >> "$GITHUB_OUTPUT"; echo "hours=9,10,11" >> "$GITHUB_OUTPUT" ;;
-            "15,45 6-11 * * *")          echo "command=sync"    >> "$GITHUB_OUTPUT"; echo "hours=8,9,10,11,12" >> "$GITHUB_OUTPUT" ;;
             *) echo "command=${{ inputs.command }}" >> "$GITHUB_OUTPUT"; echo "hours=" >> "$GITHUB_OUTPUT" ;;
           esac
 

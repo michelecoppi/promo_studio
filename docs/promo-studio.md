@@ -356,26 +356,62 @@ round di gruppo, notifiche attivate; contenuti pubblicati per canale (da `promo_
 
 `--notify` invia il file Markdown alla sola chat dell'admin (`PROMO_ADMIN_CHAT_ID`).
 
-## Pianificazione (GitHub Actions)
+## Pianificazione (Cloud Scheduler + GitHub Actions)
 
-`.github/workflows/promo.yml`:
+I lavori girano in `.github/workflows/promo.yml`; chi li avvia all'ora giusta è **Cloud Scheduler**:
 
-| Ora (Europe/Rome) | Lavoro |
-| --- | --- |
-| ogni giorno 08:37 | `drafts`: 1 video per lingua nel formato del giorno + la soluzione di ieri, in coda come `draft` |
-| ogni giorno 12:23 | `publish`: gli `approved` in scadenza |
-| venerdì 09:17 | `report` (+ `--notify` se `PROMO_ADMIN_CHAT_ID` è impostata) |
-| ogni 30 min, 08:15-12:45 | `sync-approvals`: i pulsanti premuti su Telegram (solo se c'è il bot di approvazione) |
+| Ora (Europe/Rome) | Job di Cloud Scheduler | Lavoro |
+| --- | --- | --- |
+| ogni giorno 08:37 | `promo-drafts` | `drafts`: 1 video per lingua nel formato del giorno + la soluzione di ieri, in coda come `draft` |
+| ogni giorno 12:23 | `promo-publish` | `publish`: gli `approved` in scadenza |
+| venerdì 09:17 | `promo-report` | `report` (+ `--notify` se `PROMO_ADMIN_CHAT_ID` è impostata) |
 
 Con il bot di approvazione, `drafts` è seguito da `ask-approval` e `publish` è preceduto da
-`sync-approvals`. I cron delle approvazioni sono a :15 e :45 per non partire mai insieme agli altri:
-con `concurrency` GitHub tiene in attesa un solo run per volta.
+`sync-approvals` (che con il [webhook](#approvazione-immediata-webhook-su-cloud-run) attivo non fa nulla).
+
+**Perché Cloud Scheduler.** I cron di GitHub Actions sono "best effort" e su questo repository non
+partono proprio. Cloud Scheduler parte all'ora esatta e conosce l'ora di Roma, ma non sa avviare un
+workflow con un token tenuto in Secret Manager: per questo chiama `/dispatch?command=...` sul servizio
+`promo-approvals` (promo/dispatch.py) con un token OIDC di Google. Il servizio accetta solo il service
+account `promo-scheduler` (`PROMO_DISPATCH_INVOKER`) e il proprio indirizzo (`PROMO_DISPATCH_AUDIENCE`),
+e avvia il workflow con `workflow_dispatch`, mai in `--dry-run`, usando `PROMO_GITHUB_DISPATCH_TOKEN`
+(un token GitHub fine-grained, solo questo repository, solo "Actions: Read and write").
+
+In `promo.yml` restano i cron di bozze e pubblicazione come riserva: sono idempotenti, quindi se un
+giorno ripartono non fanno danni. Il report no (manderebbe due messaggi).
+
+Una volta sola, dopo il deploy di `promo-approvals` (vedi sopra):
+
+```bash
+PROJECT=guess-the-player-from-path-bot
+URL=$(gcloud run services describe promo-approvals --project $PROJECT --region europe-west1 --format 'value(status.url)')
+SCHED=promo-scheduler@$PROJECT.iam.gserviceaccount.com
+
+gcloud iam service-accounts create promo-scheduler --project $PROJECT --display-name "Promo Studio: Cloud Scheduler"
+echo <token GitHub>| gcloud secrets create promo-github-dispatch-token --project $PROJECT --data-file=-
+gcloud secrets add-iam-policy-binding promo-github-dispatch-token --project $PROJECT \
+  --member serviceAccount:promo-approvals@$PROJECT.iam.gserviceaccount.com --role roles/secretmanager.secretAccessor
+gcloud run deploy promo-approvals --project $PROJECT --region europe-west1 --source . \
+  --update-env-vars PROMO_DISPATCH_INVOKER=$SCHED,PROMO_DISPATCH_AUDIENCE=$URL \
+  --update-secrets PROMO_GITHUB_DISPATCH_TOKEN=promo-github-dispatch-token:latest
+
+job() {  # nome, cron (ora di Roma), comando
+  gcloud scheduler jobs create http "$1" --project $PROJECT --location europe-west1 --schedule "$2" \
+    --time-zone Europe/Rome --uri "$URL/dispatch?command=$3" --http-method POST --message-body "" \
+    --oidc-service-account-email $SCHED --oidc-token-audience $URL --max-retry-attempts 3 --min-backoff 60s
+}
+job promo-drafts "37 8 * * *" drafts
+job promo-publish "23 12 * * *" publish
+job promo-report "17 9 * * 5" report
+```
+
+Per provare un job subito: `gcloud scheduler jobs run promo-publish --project $PROJECT --location europe-west1`
+(dopo la pubblicazione del giorno non pubblica niente). Per sospenderli: `gcloud scheduler jobs pause <job>`.
 
 Rotazione dei formati: lun `who_is`, mar `percent`, mer `journeyman`, gio `who_is`, ven `ladder`,
-sab `percent`, dom `who_is` (ripiego su `who_is` se manca materiale). I cron sono in UTC e raddoppiati per
-l'ora legale; `--at-rome-hour` fa girare il lavoro solo nelle ore giuste, e tutti i lavori sono idempotenti.
-I minuti sono lontani dall'ora piena (quando GitHub ritarda o salta i cron) e ogni lavoro accetta
-qualche ora di ritardo: le bozze partono fino alle 11, la pubblicazione fino alle 15.
+sab `percent`, dom `who_is` (ripiego su `who_is` se manca materiale). I cron di riserva sono in UTC e
+raddoppiati per l'ora legale; `--at-rome-hour` li fa girare solo nelle ore giuste (le bozze fino alle 11,
+la pubblicazione fino alle 15). I lavori avviati da Cloud Scheduler o a mano non hanno questo filtro.
 
 Il workflow non gira sui fork (`if: github.repository == 'michelecoppi/promo_studio'`), si autentica a
 Google Cloud con Workload Identity Federation (nessuna chiave in un secret) e passa a ogni passo solo i
