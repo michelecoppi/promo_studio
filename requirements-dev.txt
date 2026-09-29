@@ -1,4 +1,4 @@
 -r requirements.txt
 pytest==8.3.2
-ruff==0.7.4
+ruff==0.16.9
 jsonschema==4.26.0  # tests/test_post_schema.py: contratto di promo_posts (docs/schemas)
