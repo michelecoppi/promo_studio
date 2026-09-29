@@ -27,7 +27,7 @@ SAMPLE_RATE = 44100
 
 SAFE_RIGHT = W - 170   # oltre: pulsanti di TikTok
 SAFE_BOTTOM = H - 250  # oltre: didascalia
-SAFE_LEFT = 60
+SAFE_LEFT = W - SAFE_RIGHT  # simmetrica: il contenuto resta centrato nel fotogramma
 SAFE_TOP = 100
 SAFE_CENTER_X = (SAFE_LEFT + SAFE_RIGHT) // 2
 
@@ -222,7 +222,7 @@ def check_layout(timeline: Timeline, theme: Theme, step: float = 0.25) -> None:
         render_frame(timeline, theme, t, boxes)
         for box in boxes:
             left, top, right, bottom = box
-            if right > SAFE_RIGHT or bottom > SAFE_BOTTOM or left < 0 or top < 0:
+            if right > SAFE_RIGHT or bottom > SAFE_BOTTOM or left < SAFE_LEFT or top < 0:
                 raise LayoutError(f"testo fuori dalla zona sicura a {t:.2f}s: {box}")
         t += step
 

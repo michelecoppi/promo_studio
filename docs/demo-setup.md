@@ -153,7 +153,7 @@ sfide vere (Livello 2). Non è un bug.
 Facoltativo, controllo della zona sicura di TikTok: aggiungi `--check-layout` a un comando `render`
 (fallisce se un testo finisce sotto i pulsanti o sotto la didascalia).
 
-### 1.7 Bozze del giorno (come il lavoro delle 07:00)
+### 1.7 Bozze del giorno (come il lavoro delle 08:37)
 
 ```bash
 python -m promo drafts
@@ -333,7 +333,7 @@ ma non deve inventare valori. Dettagli completi in `docs/promo-studio.md`, sezio
   una volta per ottenere il refresh token; poi `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`,
   `TIKTOK_REFRESH_TOKEN` nel `.env`. Prima prova su **un** post con `publish --id <id> --now`. Verificare sulla
   documentazione TikTok limiti e restrizioni per le app non revisionate.
-- **GitHub Actions (bozze 07:00, pubblicazione 12:00, report venerdì 09:00):** 👤 service account Google Cloud con
+- **GitHub Actions (bozze 08:37, pubblicazione 12:23, report venerdì 09:17):** 👤 service account Google Cloud con
   Workload Identity Federation; secrets e variabili elencati in `docs/promo-studio.md`; prova con
   *Actions → Promo → Run workflow* (dry-run di default). Per la demo **non** serve.
 - **Nel repository del gioco** (issue separata, non in questa demo): aggiungere `"telegram_channel"` a

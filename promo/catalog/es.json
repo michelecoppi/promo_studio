@@ -40,7 +40,7 @@
       "solution": ["La solución de ayer: ¡era {name}! ✅ ¿Lo acertaste? Hoy hay una carrera nueva."]
     },
     "hashtags": {
-      "base": ["#fútbol", "#quizdefutbol", "#adivinaeljugador"],
+      "base": ["#fútbol", "#quizdefutbol", "#adivinaeljugador", "#parati"],
       "extra": ["#laliga", "#futbol", "#ligamx"]
     },
     "pinned_comment": "✅ Solución: {name}. Cada día un jugador nuevo: juega en Telegram {link}",

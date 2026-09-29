@@ -2,15 +2,15 @@
 
 Il workflow non e' un bot sempre acceso, quindi si lavora in due tempi:
 
-1. `ask` (dopo le bozze delle 07:00): ogni video in attesa arriva all'admin
+1. `ask` (dopo le bozze delle 08:37): ogni video in attesa arriva all'admin
    (`PROMO_ADMIN_CHAT_ID`) con didascalia e due pulsanti, ✅ Approva e ❌ Rifiuta. Un video vale
    per tutti i canali della sua lingua (TikTok e canale Telegram), come in dashboard.
-2. `sync` (ogni mezz'ora fino a mezzogiorno e prima di pubblicare): legge i pulsanti premuti
+2. `sync` (ogni mezz'ora fino alle 12:45 e prima di pubblicare): legge i pulsanti premuti
    con `getUpdates`, porta i post in `approved`/`rejected` e aggiorna il messaggio.
 
 Il bot e' separato da quello del gioco perche' quello riceve gia' i messaggi dei giocatori via
 webhook, e `getUpdates` non funziona su un bot con un webhook attivo. Telegram conserva i
-pulsanti premuti per 24 ore: tra le 07:00 e le 12:00 ne passano cinque.
+pulsanti premuti per 24 ore: tra le 08:37 e le 12:23 ne passano meno di quattro.
 
 Contano solo i pulsanti premuti dall'admin, nella sua chat: chiunque altro scriva al bot viene
 ignorato. Approvare resta un'azione umana (`queue.approve` con il nome di chi ha premuto).

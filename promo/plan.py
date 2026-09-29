@@ -1,4 +1,4 @@
-"""I due lavori quotidiani: preparare le bozze (07:00) e pubblicare gli approvati (12:00).
+"""I due lavori quotidiani: preparare le bozze (08:37) e pubblicare gli approvati (12:23).
 
 **Bozze.** Per ogni lingua: un video nel formato del giorno (a rotazione, vedi `ROTATION`)
 e, se ieri c'era un indovinello in quella lingua, il video `solution` che lo risolve. Ogni
@@ -10,7 +10,7 @@ esiste", quindi rilanciare il lavoro non crea doppioni.
 passato. Ogni post si "prende" con un confronto-e-scrivi atomico prima di chiamare il
 canale; un errore diventa `failed` con il motivo e non ferma gli altri post.
 
-Il video non viaggia fra le due esecuzioni: se il file non c'e' (il workflow delle 12:00 gira
+Il video non viaggia fra le due esecuzioni: se il file non c'e' (il workflow delle 12:23 gira
 su un'altra macchina) si rigenera da `render_spec`, identico perche' il rendering e'
 deterministico, e si controlla lo sha256.
 """

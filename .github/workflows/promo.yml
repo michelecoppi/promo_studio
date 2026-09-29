@@ -1,22 +1,23 @@
 # Pianificazione del Promo Studio (§5.7). Orari in Europe/Rome:
-#   ogni giorno 07:00  bozze del giorno (poi le approva una persona)
-#   ogni giorno 12:00  pubblicazione degli approvati
-#   venerdi'    09:00  report settimanale
-#   ogni 30 min 07:15-11:45  approvazioni premute su Telegram (se c'e' il bot di approvazione)
+#   ogni giorno 08:37  bozze del giorno (poi le approva una persona)
+#   ogni giorno 12:23  pubblicazione degli approvati
+#   venerdi'    09:17  report settimanale
+#   ogni 30 min 08:15-12:45  approvazioni premute su Telegram (se c'e' il bot di approvazione)
 # GitHub usa cron in UTC e non conosce l'ora legale: ogni lavoro ha due cron (CEST e CET) e la
 # CLI decide con --at-rome-hour. I lavori sono idempotenti, quindi un doppio avvio non fa danni.
+# Minuti lontani dall'ora piena e piu' ore accettate: all'ora piena GitHub ritarda o salta i cron.
 # Niente gira senza PROMO_ENABLED=true (variabile del repository).
 name: Promo
 
 on:
   schedule:
-    - cron: "0 5 * * *"   # 07:00 CEST
-    - cron: "0 6 * * *"   # 07:00 CET
-    - cron: "0 10 * * *"  # 12:00 CEST
-    - cron: "0 11 * * *"  # 12:00 CET
-    - cron: "0 7 * * 5"   # 09:00 CEST, venerdi'
-    - cron: "0 8 * * 5"   # 09:00 CET, venerdi'
-    - cron: "15,45 5-10 * * *"  # ogni mezz'ora, 07:15-11:45 a Roma; mai insieme agli altri (concurrency)
+    - cron: "37 6 * * *"   # 08:37 CEST
+    - cron: "37 7 * * *"   # 08:37 CET
+    - cron: "23 10 * * *"  # 12:23 CEST
+    - cron: "23 11 * * *"  # 12:23 CET
+    - cron: "17 7 * * 5"   # 09:17 CEST, venerdi'
+    - cron: "17 8 * * 5"   # 09:17 CET, venerdi'
+    - cron: "15,45 6-11 * * *"  # ogni mezz'ora, 08:15-12:45 a Roma; mai insieme agli altri (concurrency)
   workflow_dispatch:
     inputs:
       command:
@@ -54,10 +55,10 @@ jobs:
         id: job
         run: |
           case "${{ github.event.schedule }}" in
-            "0 5 * * *"|"0 6 * * *")   echo "command=drafts"  >> "$GITHUB_OUTPUT"; echo "hours=7,8"  >> "$GITHUB_OUTPUT" ;;
-            "0 10 * * *"|"0 11 * * *") echo "command=publish" >> "$GITHUB_OUTPUT"; echo "hours=12,13" >> "$GITHUB_OUTPUT" ;;
-            "0 7 * * 5"|"0 8 * * 5")   echo "command=report"  >> "$GITHUB_OUTPUT"; echo "hours=9"    >> "$GITHUB_OUTPUT" ;;
-            "15,45 5-10 * * *")        echo "command=sync"    >> "$GITHUB_OUTPUT"; echo "hours=7,8,9,10,11" >> "$GITHUB_OUTPUT" ;;
+            "37 6 * * *"|"37 7 * * *")   echo "command=drafts"  >> "$GITHUB_OUTPUT"; echo "hours=8,9,10,11" >> "$GITHUB_OUTPUT" ;;
+            "23 10 * * *"|"23 11 * * *") echo "command=publish" >> "$GITHUB_OUTPUT"; echo "hours=12,13,14,15" >> "$GITHUB_OUTPUT" ;;
+            "17 7 * * 5"|"17 8 * * 5")   echo "command=report"  >> "$GITHUB_OUTPUT"; echo "hours=9,10,11" >> "$GITHUB_OUTPUT" ;;
+            "15,45 6-11 * * *")          echo "command=sync"    >> "$GITHUB_OUTPUT"; echo "hours=8,9,10,11,12" >> "$GITHUB_OUTPUT" ;;
             *) echo "command=${{ inputs.command }}" >> "$GITHUB_OUTPUT"; echo "hours=" >> "$GITHUB_OUTPUT" ;;
           esac
 

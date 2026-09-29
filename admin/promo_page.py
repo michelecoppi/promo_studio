@@ -125,7 +125,7 @@ def tab_status(settings, store, game_source, game_error, posts):
     counts = overview["counts"]
 
     if settings.enabled:
-        st.success("🟢 **Promo Studio attivo**: bozze alle 07:00, pubblicazione alle 12:00, report il venerdì alle 09:00.")
+        st.success("🟢 **Promo Studio attivo**: bozze alle 08:37, pubblicazione alle 12:23, report il venerdì alle 09:17.")
     else:
         st.warning("⚪ **Promo Studio spento** (`PROMO_ENABLED` non è `true`): niente bozze automatiche e niente "
                    "pubblicazione. Puoi comunque generare video dalla scheda **Genera** e guardare tutto il resto.")
@@ -275,7 +275,7 @@ def tab_queue(settings, store, theme, actor, posts):
             st.rerun()
     st.caption(f"{len(shown)} post con questi filtri.")
     if not shown:
-        st.info("Nessun post con questi filtri. Le bozze arrivano ogni mattina alle 07:00, oppure creane una dalla "
+        st.info("Nessun post con questi filtri. Le bozze arrivano ogni mattina alle 08:37, oppure creane una dalla "
                 "scheda **Genera**.")
     for post in shown:
         with st.container(border=True):
@@ -510,7 +510,7 @@ def tab_results(settings, store, game_source, posts):
 GUIDE = """
 ### Come funziona
 
-1. **07:00, bozze.** Per ogni lingua il sistema sceglie un percorso (solo sfide già chiuse o il pool
+1. **08:37, bozze.** Per ogni lingua il sistema sceglie un percorso (solo sfide già chiuse o il pool
    riservato: niente spoiler), genera il video e i testi e li mette in **Coda** come *da approvare*. Se ieri
    c'era un indovinello, prepara anche il video con la soluzione.
 2. **Tu approvi.** Nella scheda **Coda** guardi il video, correggi la didascalia se serve, **Approva** o

@@ -188,7 +188,7 @@ Facoltativo, con un **bot dedicato** (creato con BotFather, diverso da quello de
 privata dell'admin: `PROMO_APPROVAL_BOT_TOKEN` + `PROMO_ADMIN_CHAT_ID`. L'admin scrive `/start` al bot
 una volta, poi:
 
-1. dopo le bozze delle 07:00, `python -m promo ask-approval` gli manda ogni video in attesa con
+1. dopo le bozze delle 08:37, `python -m promo ask-approval` gli manda ogni video in attesa con
    didascalia, canali e due pulsanti **✅ Approva** / **❌ Rifiuta**. Un video vale per tutti i canali
    della sua lingua (TikTok e canale Telegram);
 2. `python -m promo sync-approvals` (ogni mezz'ora fino alle 11:45 e subito prima di pubblicare) legge i
@@ -314,10 +314,10 @@ round di gruppo, notifiche attivate; contenuti pubblicati per canale (da `promo_
 
 | Ora (Europe/Rome) | Lavoro |
 | --- | --- |
-| ogni giorno 07:00 | `drafts`: 1 video per lingua nel formato del giorno + la soluzione di ieri, in coda come `draft` |
-| ogni giorno 12:00 | `publish`: gli `approved` in scadenza |
-| venerdì 09:00 | `report` (+ `--notify` se `PROMO_ADMIN_CHAT_ID` è impostata) |
-| ogni 30 min, 07:15-11:45 | `sync-approvals`: i pulsanti premuti su Telegram (solo se c'è il bot di approvazione) |
+| ogni giorno 08:37 | `drafts`: 1 video per lingua nel formato del giorno + la soluzione di ieri, in coda come `draft` |
+| ogni giorno 12:23 | `publish`: gli `approved` in scadenza |
+| venerdì 09:17 | `report` (+ `--notify` se `PROMO_ADMIN_CHAT_ID` è impostata) |
+| ogni 30 min, 08:15-12:45 | `sync-approvals`: i pulsanti premuti su Telegram (solo se c'è il bot di approvazione) |
 
 Con il bot di approvazione, `drafts` è seguito da `ask-approval` e `publish` è preceduto da
 `sync-approvals`. I cron delle approvazioni sono a :15 e :45 per non partire mai insieme agli altri:
@@ -325,7 +325,9 @@ con `concurrency` GitHub tiene in attesa un solo run per volta.
 
 Rotazione dei formati: lun `who_is`, mar `percent`, mer `journeyman`, gio `who_is`, ven `ladder`,
 sab `percent`, dom `who_is` (ripiego su `who_is` se manca materiale). I cron sono in UTC e raddoppiati per
-l'ora legale; `--at-rome-hour` fa girare il lavoro solo nell'ora giusta, e tutti i lavori sono idempotenti.
+l'ora legale; `--at-rome-hour` fa girare il lavoro solo nelle ore giuste, e tutti i lavori sono idempotenti.
+I minuti sono lontani dall'ora piena (quando GitHub ritarda o salta i cron) e ogni lavoro accetta
+qualche ora di ritardo: le bozze partono fino alle 11, la pubblicazione fino alle 15.
 
 Il workflow non gira sui fork (`if: github.repository == 'michelecoppi/promo_studio'`), si autentica a
 Google Cloud con Workload Identity Federation (nessuna chiave in un secret) e passa a ogni passo solo i
@@ -341,8 +343,8 @@ Il service account ha bisogno di: lettura/scrittura Firestore (`roles/datastore.
 `secretmanager.versions.access` + `secretmanager.versions.add` sul solo segreto del refresh token.
 
 `workflow_dispatch` permette di lanciare a mano `drafts`, `publish`, `report` o `sync` (di default in `--dry-run`).
-Cron locale equivalente: `0 7 * * *  python -m promo drafts`, `0 12 * * *  python -m promo publish`,
-`0 9 * * 5  python -m promo report --notify`.
+Cron locale equivalente: `37 8 * * *  python -m promo drafts`, `23 12 * * *  python -m promo publish`,
+`17 9 * * 5  python -m promo report --notify`.
 
 ## Configurazione
 

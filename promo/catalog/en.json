@@ -40,7 +40,7 @@
       "solution": ["Yesterday's answer: {name}! ✅ Did you get it? A new career drops today."]
     },
     "hashtags": {
-      "base": ["#football", "#footballquiz", "#guesstheplayer"],
+      "base": ["#football", "#footballquiz", "#guesstheplayer", "#fyp"],
       "extra": ["#premierleague", "#soccer", "#footballtiktok"]
     },
     "pinned_comment": "✅ Answer: {name}. A new player every day: play on Telegram {link}",

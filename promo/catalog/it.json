@@ -40,7 +40,7 @@
       "solution": ["Soluzione di ieri: era {name}! ✅ Tu l'avevi preso? Oggi c'è un percorso nuovo."]
     },
     "hashtags": {
-      "base": ["#calcio", "#indovinailcalciatore", "#quizcalcio"],
+      "base": ["#calcio", "#indovinailcalciatore", "#quizcalcio", "#perte"],
       "extra": ["#seriea", "#football", "#calciomercato"]
     },
     "pinned_comment": "✅ Soluzione: {name}. Ogni giorno un calciatore nuovo: gioca su Telegram {link}",

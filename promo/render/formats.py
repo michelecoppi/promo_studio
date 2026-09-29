@@ -21,6 +21,7 @@ from promo.models import Card
 from promo.render.engine import (
     SAFE_BOTTOM,
     SAFE_CENTER_X,
+    SAFE_LEFT,
     SAFE_RIGHT,
     Canvas,
     Theme,
@@ -39,9 +40,9 @@ DURATION_LIMITS = {
 
 ROWS_TOP = 330
 ROWS_BOTTOM = SAFE_BOTTOM - 30
-TRACK_X = 110
-CARD_X = 150
-TILE_X = TRACK_X - 24
+TILE_X = SAFE_LEFT
+TRACK_X = TILE_X + 24
+CARD_X = TRACK_X + 40
 
 TICK, BEEP, FINAL, LEVEL, CHIME = 880.0, 660.0, 1320.0, 440.0, 1046.5
 LOAN_ARROW = "→"

@@ -3,7 +3,7 @@
 `Card` e' tutto quello che serve per disegnare un video e scriverne i testi, gia' ordinato
 e tradotto: il renderer non legge Firestore ne' il dataset. Il post salva la scheda dentro
 `render_spec`, cosi' il video si puo' rigenerare identico (il rendering e' deterministico)
-su un'altra macchina - il workflow delle 12:00 non ha il file prodotto alle 07:00.
+su un'altra macchina - il workflow delle 12:23 non ha il file prodotto alle 08:37.
 """
 from dataclasses import asdict, dataclass, field
 from typing import Optional
