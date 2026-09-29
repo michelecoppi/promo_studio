@@ -89,8 +89,18 @@ class ApprovalBot:
     def answer(self, callback_id: str, text: str) -> None:
         try:
             self._call("answerCallbackQuery", data={"callback_query_id": callback_id, "text": text[:200]})
-        except (RuntimeError, requests.RequestException):
-            pass  # una risposta tardiva ("query is too old") non e' un errore: conta lo stato in coda
+        except (RuntimeError, requests.RequestException) as e:
+            # Una risposta tardiva ("query is too old") non e' grave: conta lo stato in coda.
+            log.warning("risposta al pulsante non inviata: %s", e)
+
+    def close(self, message_id: int, note: str) -> None:
+        """Toglie i pulsanti da un messaggio che non porta piu' a niente, con una riga di spiegazione."""
+        try:
+            self._call("editMessageReplyMarkup", data={"chat_id": self.admin_chat_id, "message_id": message_id,
+                                                       "reply_markup": json.dumps({"inline_keyboard": []})})
+            self.send_text(note)
+        except (RuntimeError, requests.RequestException) as e:
+            log.warning("pulsanti del messaggio %s non tolti: %s", message_id, e)
 
     def edit_caption(self, message_id: int, caption: str) -> None:
         # Senza reply_markup i pulsanti spariscono: una decisione presa non si ripete.
@@ -174,6 +184,9 @@ def handle_press(store, bot: ApprovalBot, settings, callback: dict) -> list:
     posts = [p for p in store.list() if p.get("approval_message_id") == message_id]
     if choice not in (APPROVE, REJECT) or not posts:
         bot.answer(callback["id"], "Post non trovato")
+        if not posts:  # bozze cancellate o rigenerate: i pulsanti non servono piu'
+            bot.close(message_id, "⚠️ Quelle bozze non sono più in coda: i pulsanti sono stati tolti. "
+                                  "Usa il messaggio più recente.")
         return [f"pulsante sul messaggio {message_id}: nessun post"]
     actor = _actor(settings, user)
     target = STATUS_APPROVED if choice == APPROVE else STATUS_REJECTED

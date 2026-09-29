@@ -95,3 +95,15 @@ def test_a_failure_asks_telegram_to_retry(tmp_path):
 
     store.list = broken
     assert call(app, body=press(1, msg, "ok")) == 500
+
+
+def test_a_press_on_drafts_no_longer_in_queue_removes_the_buttons(tmp_path):
+    app, store, fake = service(tmp_path)
+
+    assert call(app, body=press(1, 999, "ok")) == 200
+
+    assert fake.sent("answerCallbackQuery")[0]["text"] == "Post non trovato"
+    closed = fake.sent("editMessageReplyMarkup")[0]
+    assert closed["message_id"] == 999 and json.loads(closed["reply_markup"]) == {"inline_keyboard": []}
+    assert "non sono più in coda" in fake.sent("sendMessage")[0]["text"]
+    assert all(p["status"] == "draft" for p in store.list())
