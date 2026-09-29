@@ -3,7 +3,9 @@
 Gira su Cloud Run (vedi `Dockerfile` e docs/promo-studio.md, "Approvazione immediata"),
 separato dal gioco e senza il suo repository: gli servono solo Firestore e il bot di
 approvazione. La decisione passa da `approvals.handle_press`, la stessa di `sync`, con gli
-stessi controlli (solo l'admin, solo post ancora in bozza).
+stessi controlli (solo l'admin, solo post ancora in bozza). I pulsanti dei brief del supervisore
+(`brief:use:<campaign_id>` / `brief:skip:<campaign_id>`) seguono la stessa strada e finiscono in
+`promo_brief_decisions` (promo/supervisor_briefs.py): al servizio non serve il Firestore del supervisore.
 
 Il servizio e' pubblico perche' Telegram non sa autenticarsi con Google: lo protegge il
 segreto che Telegram rimanda in `X-Telegram-Bot-Api-Secret-Token` (impostato con
@@ -20,7 +22,7 @@ from threading import Lock
 from typing import Callable, Optional
 from urllib.parse import parse_qs
 
-from promo import approvals, config, dispatch, log
+from promo import approvals, config, dispatch, log, supervisor_briefs
 from promo.store import FirestoreStore
 
 SECRET_HEADER = "HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"
@@ -34,8 +36,10 @@ def _reply(start_response, status: str, body: str = ""):
 
 
 def make_app(settings, store_factory: Callable, bot_factory: Callable = approvals.build_bot, *,
-             verify_token: Optional[Callable] = None, github_session=None):
-    """L'app WSGI. Store e bot si creano alla prima richiesta, e una volta sola."""
+             verify_token: Optional[Callable] = None, github_session=None,
+             decisions_factory: Callable = supervisor_briefs.decisions_for):
+    """L'app WSGI. Store, decisioni sui brief e bot si creano alla prima richiesta, e una volta sola.
+    `decisions_factory` riceve la coda e ritorna lo store di `promo_brief_decisions` (o None)."""
     state, lock = {}, Lock()
 
     def start(environ, start_response):
@@ -61,8 +65,9 @@ def make_app(settings, store_factory: Callable, bot_factory: Callable = approval
         with lock:
             if not state:
                 state["store"] = store_factory()
+                state["decisions"] = decisions_factory(state["store"])
                 state["bot"] = bot_factory(settings)
-        return state["store"], state["bot"]
+        return state["store"], state["bot"], state["decisions"]
 
     def app(environ, start_response):
         if environ.get("PATH_INFO") == "/dispatch":
@@ -90,12 +95,12 @@ def make_app(settings, store_factory: Callable, bot_factory: Callable = approval
         callback = update.get("callback_query") if isinstance(update, dict) else None
         if not callback:
             return _reply(start_response, "200 OK")  # altro che pulsanti: niente da fare
-        store, bot = deps()
+        store, bot, decisions = deps()
         if bot is None:
             log.warning("webhook: mancano PROMO_APPROVAL_BOT_TOKEN o PROMO_ADMIN_CHAT_ID")
             return _reply(start_response, "503 Service Unavailable")
         try:
-            for line in approvals.handle_press(store, bot, settings, callback):
+            for line in approvals.handle_press(store, bot, settings, callback, decisions):
                 log.info("webhook: %s", line)
         except Exception as e:  # Telegram riprova: handle_press e' idempotente
             log.warning("webhook: pulsante non applicato (%s)", log.scrub(e))

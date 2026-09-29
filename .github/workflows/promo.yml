@@ -40,6 +40,8 @@ env:
   PROMO_ENABLED: ${{ vars.PROMO_ENABLED }}
   PROMO_LANGUAGES: ${{ vars.PROMO_LANGUAGES }}
   PROMO_TELEGRAM_LANGUAGES: ${{ vars.PROMO_TELEGRAM_LANGUAGES }}
+  # Brief del supervisore (promo/supervisor_briefs.py): progetto gtp_orchestrator, sola lettura. Vuota = spenti.
+  PROMO_SUPERVISOR_FIRESTORE_PROJECT: ${{ vars.PROMO_SUPERVISOR_FIRESTORE_PROJECT }}
   PROMO_MEDIA_DIR: promo-media
   GAME_REPO_PATH: ${{ github.workspace }}/game
 
@@ -80,6 +82,12 @@ jobs:
         if: steps.job.outputs.command == 'drafts'
         run: python -m promo drafts --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ inputs.dry_run && '--dry-run' || '' }}
 
+      # I brief del supervisore che l'admin ha scelto di usare (✅ Usa) diventano bozze, prima di
+      # mandarle all'approvazione come le altre. Stesse regole di brief-import.
+      - name: Bozze dai brief del supervisore
+        if: steps.job.outputs.command == 'drafts'
+        run: python -m promo brief-apply --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ inputs.dry_run && '--dry-run' || '' }}
+
       # Le bozze all'admin su Telegram, con i pulsanti Approva / Rifiuta (promo/approvals.py).
       - name: Bozze all'admin per l'approvazione
         if: steps.job.outputs.command == 'drafts' && !inputs.dry_run
@@ -91,6 +99,18 @@ jobs:
             echo "approvazione da Telegram non configurata: si approva dalla dashboard"; exit 0
           fi
           python -m promo ask-approval --at-rome-hour "${{ steps.job.outputs.hours }}"
+
+      # I brief nuovi del supervisore (letti dal suo Firestore) all'admin, con ✅ Usa / ❌ Scarta.
+      - name: Brief del supervisore all'admin
+        if: steps.job.outputs.command == 'drafts' && !inputs.dry_run
+        env:
+          PROMO_APPROVAL_BOT_TOKEN: ${{ secrets.PROMO_APPROVAL_BOT_TOKEN }}
+          PROMO_ADMIN_CHAT_ID: ${{ vars.PROMO_ADMIN_CHAT_ID }}
+        run: |
+          if [ -z "$PROMO_APPROVAL_BOT_TOKEN" ] || [ -z "$PROMO_ADMIN_CHAT_ID" ]; then
+            echo "bot approvazioni non configurato: brief del supervisore non proposti"; exit 0
+          fi
+          python -m promo brief-ask --at-rome-hour "${{ steps.job.outputs.hours }}"
 
       # I pulsanti premuti su Telegram: ogni mezz'ora e comunque subito prima di pubblicare.
       - name: Approvazioni da Telegram

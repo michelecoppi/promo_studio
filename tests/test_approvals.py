@@ -30,7 +30,7 @@ class TelegramFake:
         method = url.rsplit("/", 1)[-1]
         data = kwargs.get("data") or {}
         self.calls.append((method, data))
-        if method == "sendVideo":
+        if method in ("sendVideo", "sendMessage"):
             self.next_message_id += 1
             return Response({"ok": True, "result": {"message_id": self.next_message_id}})
         if method == "getWebhookInfo":

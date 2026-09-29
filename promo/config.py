@@ -58,6 +58,9 @@ class Settings:
     # Il bot del gioco sa leggere `?start=src_<canale>-<campaign_id>`? Finche' no, i link delle
     # bozze da brief restano `src_<canale>` (la campagna resta comunque in `brief_id`).
     campaign_links: bool = False
+    # Progetto GCP del supervisore (gtp_orchestrator) da cui leggere, in sola lettura, i brief
+    # `promo_briefs` (promo/supervisor_briefs.py). Vuoto = funzione spenta.
+    supervisor_firestore_project: str = ""
     game_repo_path: str = ""
     store: str = "firestore"
     local_store_path: Path = Path("promo_posts.json")
@@ -93,6 +96,7 @@ class Settings:
             tiktok_account=(env.get("PROMO_TIKTOK_ACCOUNT") or "").strip(),
             x_enabled=_flag(env.get("PROMO_X_ENABLED")),
             campaign_links=_flag(env.get("PROMO_CAMPAIGN_LINKS")),
+            supervisor_firestore_project=(env.get("PROMO_SUPERVISOR_FIRESTORE_PROJECT") or "").strip(),
             game_repo_path=(env.get("GAME_REPO_PATH") or "").strip(),
             store=(env.get("PROMO_STORE") or "firestore").strip().lower(),
             local_store_path=Path(env.get("PROMO_LOCAL_STORE") or "promo_posts.json"),

@@ -19,6 +19,10 @@ passano meno di quattro.
 
 Contano solo i pulsanti premuti dall'admin, nella sua chat: chiunque altro scriva al bot viene
 ignorato. Approvare resta un'azione umana (`queue.approve` con il nome di chi ha premuto).
+
+Lo stesso bot porta anche i brief del supervisore (promo/supervisor_briefs.py) con ✅ Usa / ❌ Scarta:
+i loro pulsanti hanno il prefisso `brief:` e `handle_press` li passa a quel modulo, con gli stessi
+controlli sull'admin.
 """
 import json
 import os
@@ -27,7 +31,7 @@ from typing import Optional
 
 import requests
 
-from promo import log, queue
+from promo import log, queue, supervisor_briefs
 from promo.models import STATUS_APPROVED, STATUS_DRAFT, STATUS_REJECTED
 from promo.publishers.base import post_text
 from promo.queue import TransitionError
@@ -63,6 +67,21 @@ class ApprovalBot:
                 "reply_markup": json.dumps(keyboard),
             }, files={"video": (os.path.basename(path), fh, "video/mp4")})
         return message["message_id"]
+
+    def send_message(self, text: str, keyboard: dict) -> int:
+        """Messaggio di testo semplice (niente parse_mode) con pulsanti; ritorna il suo id."""
+        message = self._call("sendMessage", data={"chat_id": self.admin_chat_id, "text": text[:4096],
+                                                  "disable_web_page_preview": "true",
+                                                  "reply_markup": json.dumps(keyboard)})
+        return message["message_id"]
+
+    def edit_text(self, message_id: int, text: str) -> None:
+        # Senza reply_markup i pulsanti spariscono: una decisione presa non si ripete.
+        try:
+            self._call("editMessageText", data={"chat_id": self.admin_chat_id, "message_id": message_id,
+                                                "text": text[:4096], "disable_web_page_preview": "true"})
+        except (RuntimeError, requests.RequestException) as e:
+            log.warning("messaggio %s non aggiornato: %s", message_id, e)
 
     def send_text(self, text: str) -> None:
         self._call("sendMessage", data={"chat_id": self.admin_chat_id, "text": text[:4096],
@@ -172,14 +191,19 @@ def _actor(settings, user: dict) -> str:
     return user.get("username") or user.get("first_name") or f"telegram:{user.get('id')}"
 
 
-def handle_press(store, bot: ApprovalBot, settings, callback: dict) -> list:
-    """Un pulsante premuto (`callback_query`). Idempotente: un post gia' deciso non cambia."""
+def handle_press(store, bot: ApprovalBot, settings, callback: dict, decisions=None) -> list:
+    """Un pulsante premuto (`callback_query`). Idempotente: un post gia' deciso non cambia.
+
+    I pulsanti dei brief del supervisore (`brief:...`) vanno a `supervisor_briefs.handle_press`,
+    con le decisioni in `decisions` (collezione `promo_brief_decisions`)."""
     user = callback.get("from") or {}
     message = callback.get("message") or {}
     chat_id = str((message.get("chat") or {}).get("id", ""))
     if str(user.get("id")) != bot.admin_chat_id or chat_id != bot.admin_chat_id:
         return [f"pulsante ignorato: non viene dall'admin (utente {user.get('id')})"]
     choice = callback.get("data")
+    if supervisor_briefs.is_brief_press(choice):
+        return supervisor_briefs.handle_press(decisions, bot, callback, _actor(settings, user))
     message_id = message.get("message_id")
     posts = [p for p in store.list() if p.get("approval_message_id") == message_id]
     if choice not in (APPROVE, REJECT) or not posts:
@@ -213,7 +237,7 @@ def handle_press(store, bot: ApprovalBot, settings, callback: dict) -> list:
     return lines
 
 
-def sync(store, bot: ApprovalBot, settings) -> list:
+def sync(store, bot: ApprovalBot, settings, decisions=None) -> list:
     """Applica i pulsanti premuti dall'admin e non ancora letti (solo senza webhook)."""
     if bot.webhook_url():
         return ["webhook attivo: i pulsanti si applicano appena premuti, niente da leggere"]
@@ -224,7 +248,7 @@ def sync(store, bot: ApprovalBot, settings) -> list:
     for update in updates:
         callback = update.get("callback_query")
         if callback:
-            lines.extend(handle_press(store, bot, settings, callback))
+            lines.extend(handle_press(store, bot, settings, callback, decisions))
     bot.confirm(max(u["update_id"] for u in updates))
     return lines or ["nessuna decisione nuova"]
 
