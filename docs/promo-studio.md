@@ -351,8 +351,18 @@ La decisione si salva **in Promo**, nel Firestore del gioco, in `promo_brief_dec
 | `status` | `asking` (invio in corso), `asked` (in attesa dell'admin), `send_failed` (si ritenta al giro dopo), `used`, `discarded` |
 | `brief`, `week`, `supervisor_expires_at` | il brief validato e i dati del supervisore al momento della proposta |
 | `asked_at`, `message_id` | quando e con quale messaggio Telegram è stato proposto |
+| `error` | perché l'ultimo invio è fallito (`send_failed`) |
 | `decided_by`, `decided_at` | chi ha premuto (`PROMO_ADMIN_NAME` o username Telegram) e quando |
 | `imported_at`, `imported_for`, `import_error` | quando è diventato bozze e per quale giorno, o perché no |
+
+**Contratto versionato:** [`docs/schemas/promo_brief_decision.v1.json`](schemas/promo_brief_decision.v1.json)
+(JSON Schema 2020-12), nello stesso stile di quello di `promo_posts`: stati, campi obbligatori (anche per
+stato: `decided_by`/`decided_at` per `used` e `discarded`, `error` per `send_failed`, `imported_for` con
+`imported_at`), il brief validato e il formato delle date. Il supervisore ne tiene una copia fissata a uno
+SHA. `tests/test_brief_decision_schema.py` valida i documenti veri di `ask` (anche invio fallito, ritento e
+`asking` lasciato da un crash), dei pulsanti ✅ Usa / ❌ Scarta e di `apply_used`. Un campo opzionale in più
+non richiede una nuova versione; togliere o rinominare un campo, cambiarne il tipo o cambiare gli stati
+richiede `promo_brief_decision.v2.json` e un'issue su `gtp_orchestrator`.
 
 Un documento rimasto `asking` (crash durante l'invio) non viene rimandato alla cieca: se il messaggio è
 arrivato, i suoi pulsanti funzionano comunque. Il supervisore legge questa collezione in sola lettura
