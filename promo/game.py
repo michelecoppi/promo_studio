@@ -158,10 +158,10 @@ class GameRepo:
 
     # --- stile ------------------------------------------------------------------------
     def years_label(self, stop: dict) -> str:
-        return self._path_image._years_label(stop)
+        return self._path_image.years_label(stop)
 
     def team_color(self, team: str) -> tuple:
-        return self._path_image._color_for_team(team)
+        return self._path_image.color_for_team(team)
 
     def palette(self) -> dict:
         pi = self._path_image

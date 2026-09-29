@@ -37,7 +37,7 @@ indicata da `GAME_REPO_PATH`:
 | `services/player_pool.py` (`get_practice_players`, `get_player_by_id`) | pool riservato, popolarità, nomi |
 | `services/career_order.py`, `services/content_i18n.py::localize_career` | ordine e traduzione delle tappe |
 | `services/difficulty.py::compute_difficulty` | fasce della scala (`ladder`) |
-| `services/path_image.py` (`_color_for_team`, `_years_label`, palette) | coerenza grafica con il bot |
+| `services/path_image.py` (`color_for_team`, `years_label`, palette) | coerenza grafica con il bot |
 | `webapp/src/assets/fonts/BarlowCondensed-SemiBold.woff2` (o `.ttf`, se c'è), `services/fonts.py` | font dei titoli e di ripiego |
 | `services/product_analytics_query.py` (`run_hogql`, `QueryError`), `services/product_analytics.py::CAMPAIGN_SOURCES` | report e link `src_` |
 | `services/observability.py::scrub_text` | log senza segreti |
@@ -127,7 +127,7 @@ Rispetto al prototipo `make.py`: pausa più lunga sull'ultima tappa, percentuale
 dal basso (da destra passavano sotto i pulsanti di TikTok), freccia del prestito disegnata con un font
 che ha il glifo, durata adattata al numero di tappe.
 
-Nessuno stemma, logo, foto o musica: solo nomi dei club e colori generati (`_color_for_team`).
+Nessuno stemma, logo, foto o musica: solo nomi dei club e colori generati (`color_for_team`).
 
 ## Regola anti-spoiler
 

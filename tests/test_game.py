@@ -70,3 +70,12 @@ def test_hogql_uses_the_public_run_hogql(tmp_path, fake_paq):
 def test_hogql_errors_become_analytics_error(tmp_path, fake_paq):
     with pytest.raises(AnalyticsError, match="non configurato"):
         repo_at(tmp_path).hogql("SELECT boom")
+
+
+def test_path_image_uses_the_public_names(tmp_path):
+    """Solo le funzioni pubbliche del gioco (#234): gli alias privati spariranno."""
+    repo = repo_at(tmp_path)
+    repo._path_image = types.SimpleNamespace(years_label=lambda stop: f"{stop['from']}-{stop['to']}",
+                                             color_for_team=lambda team: (1, 2, 3))
+    assert repo.years_label({"from": 2010, "to": 2012}) == "2010-2012"
+    assert repo.team_color("Juventus") == (1, 2, 3)
