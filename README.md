@@ -2,7 +2,8 @@
 
 Strumento che prepara (e, dopo l'approvazione di una persona, pubblica) i contenuti promozionali di
 [@guess_the_player_from_path_bot](https://t.me/guess_the_player_from_path_bot): video verticali e testi
-in italiano, inglese e spagnolo, più un report settimanale sui canali che portano giocatori.
+in italiano, inglese e spagnolo, più un report settimanale sui contenuti (pubblicati, falliti, approvati, rifiutati, costi). Le metriche di
+prodotto le calcola il supervisore [`gtp_orchestrator`](https://github.com/michelecoppi/gtp_orchestrator).
 
 **La macchina prepara, la persona approva.** Documentazione completa: [`docs/promo-studio.md`](docs/promo-studio.md).
 Demo passo per passo (anche senza credenziali): [`docs/demo-setup.md`](docs/demo-setup.md).

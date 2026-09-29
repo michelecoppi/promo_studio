@@ -5,7 +5,7 @@
 - **Genera**: un video a mano (formato, lingua, giornata o pool), anteprima e "metti in coda";
 - **Pubblica**: cosa esce e quando, simulazione (dry-run) e pubblicazione manuale confermata;
 - **Pubblicati e report**: numeri dei contenuti usciti, report settimanale, costi per canale;
-- **Impostazioni**: il .env locale (interruttore, lingue, TikTok, Telegram, PostHog, dati) senza scriverlo a mano;
+- **Impostazioni**: il .env locale (interruttore, lingue, TikTok, Telegram, dati) senza scriverlo a mano;
 - **Guida**: come funziona e come si configura, con i passi gia' fatti spuntati.
 
 Si usa da sola (`streamlit run admin/app.py`) o dentro la dashboard del gioco chiamando
@@ -486,10 +486,12 @@ def tab_results(settings, store, game_source, posts):
 
     st.subheader("📊 Report settimanale")
     reports_dir = Path(settings.reports_dir)
-    if st.button("Genera il report adesso", disabled=game_source is None,
-                 help="Sola lettura da PostHog: nuovi giocatori, attivazione e ritenzione per canale."):
-        with st.spinner("Interrogo PostHog…"):
-            result = report.weekly(game_source, store, settings)
+    st.caption("Solo contenuti: bozze, approvati, rifiutati, pubblicati, falliti e costi, per canale e lingua. "
+               "Le metriche di prodotto (nuovi giocatori, attivazione, ritorno) arrivano dal supervisore "
+               "(gtp_orchestrator) su Telegram il lunedì.")
+    if st.button("Genera il report adesso", help="Sola lettura dalla coda promo_posts e da costs.json."):
+        with st.spinner("Conto i contenuti…"):
+            result = report.weekly(store, settings)
             path = report.write(result, reports_dir)
         st.success(f"Salvato in {path}")
     files = sorted(reports_dir.glob("promo-report-*.md"), reverse=True) if reports_dir.exists() else []
@@ -517,8 +519,9 @@ GUIDE = """
    **Rifiuta**. Senza approvazione non esce niente.
 3. **12:00, pubblicazione.** Gli approvati escono: sul canale Telegram direttamente, su TikTok come
    **bozza** nell'app (aggiungi audio e didascalia e pubblichi tu).
-4. **Venerdì 09:00, report.** Nuovi giocatori per canale, quanti tornano dopo 7 giorni, e una proposta
-   (continuare / ridurre / fermare). I costi li inserisci tu nella scheda **Pubblicati e report**.
+4. **Venerdì 09:17, report.** Solo contenuti: bozze, approvati, rifiutati, pubblicati e falliti per canale e
+   lingua, più i costi che inserisci tu nella scheda **Pubblicati e report**. Nuovi giocatori, attivazione e
+   ritorno li manda il supervisore (gtp_orchestrator) su Telegram il lunedì.
 
 Formati a rotazione: lun *Chi è?*, mar *Solo il X%*, mer *Giramondo*, gio *Chi è?*, ven *Scala*,
 sab *Solo il X%*, dom *Chi è?*.
@@ -545,9 +548,9 @@ SETUP_STEPS = (
     ("Link tracciati", "Gioco", "Link tracciati",
      "Nel repository del gioco aggiungi `\"telegram_channel\"` a `CAMPAIGN_SOURCES` in "
      "`services/product_analytics.py`, altrimenti chi arriva dal canale è contato come *other*."),
-    ("Report", "Report", "PostHog (sola lettura)",
-     "`POSTHOG_PERSONAL_API_KEY` e `POSTHOG_PROJECT_ID` (le stesse della dashboard del gioco). Facoltativo: "
-     "`PROMO_ADMIN_CHAT_ID` per ricevere il report su Telegram."),
+    ("Report", "Report", "Invio all'admin",
+     "Facoltativo: `PROMO_ADMIN_CHAT_ID` (con `BOT_TOKEN`) per ricevere il report dei contenuti su Telegram. "
+     "Le metriche di prodotto non sono qui: le manda il supervisore (gtp_orchestrator) il lunedì."),
     ("Accensione", "Generale", "Interruttore PROMO_ENABLED", "`PROMO_ENABLED=true` quando sei pronto."),
 )
 
@@ -559,8 +562,8 @@ ACTIONS_SETUP = """
    Federation** (come il workflow di backup del gioco).
 2. **GitHub → Settings → Secrets and variables → Actions**
    - *Secrets*: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `BOT_TOKEN`, `TIKTOK_CLIENT_KEY`,
-     `TIKTOK_CLIENT_SECRET`, `POSTHOG_PERSONAL_API_KEY`
-   - *Variables*: `PROMO_ENABLED=true`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `POSTHOG_PROJECT_ID`,
+     `TIKTOK_CLIENT_SECRET`
+   - *Variables*: `PROMO_ENABLED=true`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`,
      `TIKTOK_REFRESH_TOKEN_SECRET`
 3. **Prova**: *Actions → Promo → Run workflow* (dry-run di default).
 
@@ -684,9 +687,7 @@ def tab_settings(env_path, settings=None):
         tg_channel = st.text_input("Canale (es. @nome_canale)", value=current.get("PROMO_TELEGRAM_CHANNEL_ID", ""))
         bot_token = _secret_input("Token del bot", "BOT_TOKEN", current, "Serve anche per inviarti il report.")
 
-        st.subheader("📊 Report (PostHog)")
-        posthog_key = _secret_input("PostHog personal API key", "POSTHOG_PERSONAL_API_KEY", current)
-        posthog_project = st.text_input("PostHog project id", value=current.get("POSTHOG_PROJECT_ID", ""))
+        st.subheader("📊 Report")
         admin_chat = st.text_input("Chat Telegram dove ricevere il report (facoltativo)",
                                    value=current.get("PROMO_ADMIN_CHAT_ID", ""))
 
@@ -715,8 +716,6 @@ def tab_settings(env_path, settings=None):
             "PROMO_TELEGRAM_LANGUAGES": ",".join(tg_langs or ["it"]) if tg_on else "none",
             "PROMO_TELEGRAM_CHANNEL_ID": _optional(tg_channel),
             "BOT_TOKEN": bot_token,
-            "POSTHOG_PERSONAL_API_KEY": posthog_key,
-            "POSTHOG_PROJECT_ID": _optional(posthog_project),
             "PROMO_ADMIN_CHAT_ID": _optional(admin_chat),
             "PROMO_OFFLINE": "true" if offline else None,
             "PROMO_STORE": store_kind,
@@ -736,13 +735,13 @@ def tab_settings(env_path, settings=None):
             "servono gli stessi valori:\n\n"
             "- *Variables*: `PROMO_ENABLED`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES`"
             + (" (`none`)" if tg_raw == "none" else "") +
-            ", `PROMO_TELEGRAM_CHANNEL_ID`, `POSTHOG_PROJECT_ID`, `PROMO_ADMIN_CHAT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`\n"
-            "- *Secrets*: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `BOT_TOKEN`, `POSTHOG_PERSONAL_API_KEY`, "
+            ", `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`\n"
+            "- *Secrets*: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `BOT_TOKEN`, "
             "`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`\n\n"
             "In automatico il refresh token TikTok sta in Secret Manager (ruota a ogni uso).")
         st.code("\n".join(f"{k}={current[k]}" for k in (
             "PROMO_ENABLED", "PROMO_LANGUAGES", "PROMO_TELEGRAM_LANGUAGES", "PROMO_TELEGRAM_CHANNEL_ID",
-            "POSTHOG_PROJECT_ID", "PROMO_ADMIN_CHAT_ID") if current.get(k)) or "(niente da copiare)", language="dotenv")
+            "PROMO_ADMIN_CHAT_ID") if current.get(k)) or "(niente da copiare)", language="dotenv")
 
 
 def _flag(value) -> bool:

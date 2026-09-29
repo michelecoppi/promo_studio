@@ -102,10 +102,6 @@ def checks(settings, game_source=None, game_error: Optional[str] = None, env_fil
                      "fase successiva: non implementato" if not settings.x_enabled
                      else "abilitato ma non implementato: i post x falliranno"))
 
-    posthog = bool(os.environ.get("POSTHOG_PERSONAL_API_KEY") and os.environ.get("POSTHOG_PROJECT_ID"))
-    out.append(Check("Report", "PostHog (sola lettura)", OK if posthog else WARN,
-                     "configurato" if posthog else "mancano POSTHOG_PERSONAL_API_KEY e/o POSTHOG_PROJECT_ID",
-                     "" if posthog else "le stesse variabili della dashboard del gioco"))
     out.append(Check("Report", "Invio all'admin", OK if settings.admin_chat_id and settings.bot_token else OFF,
                      "attivo" if settings.admin_chat_id and settings.bot_token else "non configurato (facoltativo)",
                      "" if settings.admin_chat_id else "PROMO_ADMIN_CHAT_ID = il tuo id Telegram"))

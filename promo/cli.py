@@ -339,13 +339,12 @@ def cmd_report(args, settings) -> int:
         return 0
     from promo import report
 
-    game_source = _game(settings)
     store = None
     try:
         store = _store(settings)
     except Exception as e:  # il report deve uscire anche senza coda raggiungibile
         log.warning("coda promo_posts non disponibile per il report: %s", e)
-    result = report.weekly(game_source, store, settings, end_day=args.end or None)
+    result = report.weekly(store, settings, end_day=args.end or None)
     path = report.write(result, settings.reports_dir)
     print(f"report: {path}")
     if args.notify:

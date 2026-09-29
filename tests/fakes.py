@@ -65,7 +65,7 @@ def default_players():
 
 
 class FakeGame:
-    def __init__(self, today=TODAY, players=None, challenges=None, hogql_rows=None):
+    def __init__(self, today=TODAY, players=None, challenges=None):
         self._today = today
         self.players = {p["id"]: p for p in (default_players() if players is None else players)}
         if challenges is None:
@@ -83,8 +83,6 @@ class FakeGame:
                 challenge("2026-09-25", p["unused"], 0, 0, "medium"),
             ]
         self.challenges = {c["day"]: c for c in challenges}
-        self.hogql_rows = hogql_rows or {}
-        self.queries = []
 
     def today(self):
         return self._today
@@ -136,13 +134,6 @@ class FakeGame:
     def campaign_sources(self):
         return ("tiktok", "instagram", "youtube", "reddit", "x", "threads", "facebook",
                 "telegram_group", "creator", "producthunt", "directory", "qr")
-
-    def hogql(self, query):
-        self.queries.append(query)
-        for marker, rows in self.hogql_rows.items():
-            if marker in query:
-                return rows
-        return []
 
     def firestore_db(self):
         raise RuntimeError("niente Firestore nei test")
