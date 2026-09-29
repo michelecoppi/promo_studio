@@ -73,4 +73,7 @@ documenti sono la mappa.
   sola lettura. Cambiare stati o campi (`status`, `created_for`, `scheduled_for`, `published_at`,
   `history`, …) va segnalato con un'issue su `gtp_orchestrator`, citata nella PR.
   Il contratto è [`docs/schemas/promo_post.v1.json`](docs/schemas/promo_post.v1.json), verificato da
-  `tests/test_post_schema.py`: si aggiorna nella stessa PR del cambio.
+  `tests/test_post_schema.py`: si aggiorna nella stessa PR del cambio. Lo stesso vale per le decisioni
+  sui brief del supervisore (`promo_brief_decisions`, lette dal suo collector):
+  [`docs/schemas/promo_brief_decision.v1.json`](docs/schemas/promo_brief_decision.v1.json), verificato da
+  `tests/test_brief_decision_schema.py`.
