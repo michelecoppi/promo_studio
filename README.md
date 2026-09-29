@@ -6,6 +6,7 @@ in italiano, inglese e spagnolo, più un report settimanale sui canali che porta
 
 **La macchina prepara, la persona approva.** Documentazione completa: [`docs/promo-studio.md`](docs/promo-studio.md).
 Demo passo per passo (anche senza credenziali): [`docs/demo-setup.md`](docs/demo-setup.md).
+Regole per gli agenti (AI o persone) che lavorano sul repository: [`AGENTS.md`](AGENTS.md).
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
