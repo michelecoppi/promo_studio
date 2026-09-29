@@ -199,7 +199,7 @@ def report_published(bot: ApprovalBot, lines: list) -> None:
     if not lines or lines == ["niente da pubblicare"]:
         return
     try:
-        bot.send_text("📣 Pubblicazione delle 12:00\n\n" + "\n".join(lines))
+        bot.send_text("📣 Pubblicazione delle 12:23\n\n" + "\n".join(lines))
     except (RuntimeError, requests.RequestException) as e:
         log.warning("esito della pubblicazione non inviato all'admin: %s", e)
 
