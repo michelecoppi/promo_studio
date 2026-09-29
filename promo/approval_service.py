@@ -9,14 +9,18 @@ Il servizio e' pubblico perche' Telegram non sa autenticarsi con Google: lo prot
 segreto che Telegram rimanda in `X-Telegram-Bot-Api-Secret-Token` (impostato con
 `python -m promo approval-webhook --set`). Senza segreto configurato rifiuta tutto.
 
+Su `/dispatch?command=...` avvia anche i lavori programmati per conto di Cloud Scheduler
+(promo/dispatch.py): li' vale solo un token OIDC di Google del service account di Scheduler.
+
     gunicorn --bind :$PORT "promo.approval_service:create_app()"
 """
 import hmac
 import json
 from threading import Lock
-from typing import Callable
+from typing import Callable, Optional
+from urllib.parse import parse_qs
 
-from promo import approvals, config, log
+from promo import approvals, config, dispatch, log
 from promo.store import FirestoreStore
 
 SECRET_HEADER = "HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"
@@ -29,9 +33,29 @@ def _reply(start_response, status: str, body: str = ""):
     return [data]
 
 
-def make_app(settings, store_factory: Callable, bot_factory: Callable = approvals.build_bot):
+def make_app(settings, store_factory: Callable, bot_factory: Callable = approvals.build_bot, *,
+             verify_token: Optional[Callable] = None, github_session=None):
     """L'app WSGI. Store e bot si creano alla prima richiesta, e una volta sola."""
     state, lock = {}, Lock()
+
+    def start(environ, start_response):
+        """Cloud Scheduler: /dispatch?command=drafts|publish|report."""
+        if environ.get("REQUEST_METHOD") != "POST":
+            return _reply(start_response, "405 Method Not Allowed")
+        if not dispatch.verify_google_caller(environ.get("HTTP_AUTHORIZATION", ""), settings.dispatch_audience,
+                                             settings.dispatch_invoker, verify_token):
+            log.warning("dispatch: chiamata senza un'identita' Google valida, rifiutata")
+            return _reply(start_response, "403 Forbidden")
+        command = parse_qs(environ.get("QUERY_STRING", "")).get("command", [""])[0]
+        try:
+            dispatch.start_workflow(command, settings.github_dispatch_token, github_session)
+        except ValueError as e:
+            return _reply(start_response, "400 Bad Request", str(e))
+        except Exception as e:  # Cloud Scheduler riprova
+            log.warning("dispatch: %s non avviato (%s)", command, log.scrub(e))
+            return _reply(start_response, "502 Bad Gateway")
+        log.info("dispatch: %s avviato su GitHub", command)
+        return _reply(start_response, "200 OK", f"{command} avviato")
 
     def deps():
         with lock:
@@ -41,6 +65,8 @@ def make_app(settings, store_factory: Callable, bot_factory: Callable = approval
         return state["store"], state["bot"]
 
     def app(environ, start_response):
+        if environ.get("PATH_INFO") == "/dispatch":
+            return start(environ, start_response)
         if environ.get("REQUEST_METHOD") == "GET":
             return _reply(start_response, "200 OK", "ok")  # controllo di salute di Cloud Run
         if environ.get("REQUEST_METHOD") != "POST":
