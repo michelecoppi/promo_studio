@@ -1,6 +1,6 @@
 """Configurazione da variabili d'ambiente: un solo posto, letto una volta.
 
-I segreti (token Telegram, TikTok, PostHog) si leggono qui e non si stampano mai: `Settings`
+I segreti (token Telegram, TikTok) si leggono qui e non si stampano mai: `Settings`
 ha un `__repr__` che li oscura, cosi' un `print(settings)` o un traceback non li espone.
 """
 import os

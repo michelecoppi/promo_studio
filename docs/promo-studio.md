@@ -39,7 +39,7 @@ indicata da `GAME_REPO_PATH`:
 | `services/difficulty.py::compute_difficulty` | fasce della scala (`ladder`) |
 | `services/path_image.py` (`color_for_team`, `years_label`, palette) | coerenza grafica con il bot |
 | `webapp/src/assets/fonts/BarlowCondensed-SemiBold.woff2` (o `.ttf`, se c'è), `services/fonts.py` | font dei titoli e di ripiego |
-| `services/product_analytics_query.py` (`run_hogql`, `QueryError`), `services/product_analytics.py::CAMPAIGN_SOURCES` | report e link `src_` |
+| `services/product_analytics.py::CAMPAIGN_SOURCES` | link `src_` (controllo di `doctor`) |
 | `services/observability.py::scrub_text` | log senza segreti |
 
 Il resto del pacchetto non importa mai `services.*`: i test girano con un gioco finto (`tests/fakes.py`),
@@ -153,7 +153,7 @@ Firestore non sono raggiungibili, e in quel caso dice cosa manca. Schede:
 | 📝 **Coda** | filtri per giorno, lingua, canale, stato; per ogni post anteprima video (o rigenerazione), didascalia/hashtag/commento modificabili, **Approva**, **Rifiuta** con motivo, storico; "approva tutte le bozze visibili" |
 | 🎬 **Genera** | un video a mano (formato, lingua, scelta automatica / giornata chiusa / pool riservato), anteprima, testi da copiare, download MP4, **metti in coda come bozza** |
 | 📤 **Pubblica** | cosa esce alla prossima pubblicazione e più tardi, **Simula (dry-run)**, **Pubblica ora** con conferma |
-| 📊 **Pubblicati e report** | contenuti usciti (grafico 30 giorni, link), report settimanale (generazione e archivio), **editor dei costi** per canale |
+| 📊 **Pubblicati e report** | contenuti usciti (grafico 30 giorni, link), report settimanale dei contenuti (generazione e archivio), **editor dei costi** per canale |
 | 📖 **Guida** | come funziona, configurazione passo per passo con lo stato di ogni passo, comandi utili |
 
 `python -m promo doctor` mostra gli stessi controlli della scheda Stato (`promo/status.py`).
@@ -418,17 +418,29 @@ a mano". Instagram e YouTube Shorts sono fuori ambito: il file MP4 si carica a m
 ## Report settimanale
 
 `python -m promo report [--end YYYY-MM-DD] [--notify]`: settimana di 7 giorni che termina `--end`
-(escluso, default oggi) confrontata con la precedente. Sola lettura da PostHog con le query HogQL di
-`promo/report.py` (solo `SELECT`), tramite la Personal API Key già usata dalla dashboard del gioco.
+(escluso, default oggi a Roma) confrontata con la precedente. **Solo contenuti**, in sola lettura dalla coda
+`promo_posts` e da `costs.json` (`promo/report.py`). Non interroga PostHog e non usa il repository del gioco.
 
-Contenuto: nuovi utenti per `acquisition_channel` (`bot_started`, `is_new_user=true`); attivazione
-(`bot_started` → `daily_completed` entro 7 giorni); ritenzione D7 sulla coorte della settimana precedente
-(ancora un `daily_guess_submitted` 7+ giorni dopo l'arrivo); giocatori attivi al giorno; leghe create,
-round di gruppo, notifiche attivate; contenuti pubblicati per canale (da `promo_posts`).
+Contenuto:
 
-**Proposte**, per ogni canale di campagna: *continuare* se un nuovo giocatore costa < 0,50 € e D7 ≥ 20%;
-*ridurre o fermare* altrimenti; *dati insufficienti* sotto i 10 utenti. I costi li scrive la persona in
-`costs.json` (versionato; chiave = primo giorno della settimana del report):
+- **Sintesi**: bozze create, approvati, rifiutati, pubblicati, falliti, con il Δ sulla settimana prima;
+- **per canale e lingua**: gli stessi cinque conteggi;
+- **costi** per canale (euro, da `costs.json`) con i contenuti pubblicati e l'euro per contenuto;
+- **coda adesso**: da approvare, approvati in attesa, falliti con l'errore.
+
+I conteggi vengono dalla `history` di ogni post (giorno di Roma dell'evento): un post conta una volta per
+evento nella settimana, anche se è fallito più volte; le modifiche dei testi non contano. I post senza
+`history` usano `created_at`, `approved_at`, `rejected_at`, `published_at`.
+
+**Metriche di prodotto: solo dal supervisore.** Nuovi giocatori, attivazione a 24 ore per canale e campagna,
+ritorno a 7 giorni, North Star e referral li calcola `michelecoppi/gtp_orchestrator` con le definizioni del
+gioco (`docs/product-analytics.md`) e le soglie minime, e li manda su Telegram il **lunedì alle 08** (review
+growth, workflow [Growth](https://github.com/michelecoppi/gtp_orchestrator/actions/workflows/growth.yml)).
+Il report di Promo lo dice in una riga in testa. Prima di #8 Promo aveva query HogQL sue (nuovi utenti,
+attivazione a 7 giorni, D7, giocatori attivi, leve social) e una regola di spesa (< 0,50 € a giocatore e
+D7 ≥ 20%): sono state tolte perché davano per la stessa metrica numeri diversi da quelli del supervisore.
+
+I costi li scrive la persona in `costs.json` (versionato; chiave = primo giorno della settimana del report):
 
 ```json
 { "2026-09-17": { "tiktok": 12.5, "creator": 40 } }
@@ -501,8 +513,8 @@ segreti che servono. Da configurare nel repository:
 | Tipo | Nome |
 | --- | --- |
 | secret | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT` (Firestore + Secret Manager) |
-| secret | `BOT_TOKEN`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `POSTHOG_PERSONAL_API_KEY`, `PROMO_APPROVAL_BOT_TOKEN` (facoltativo) |
-| variabile | `PROMO_ENABLED`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `PROMO_ADMIN_NAME`, `POSTHOG_PROJECT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES`, `PROMO_SUPERVISOR_FIRESTORE_PROJECT` (facoltativa) |
+| secret | `BOT_TOKEN`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `PROMO_APPROVAL_BOT_TOKEN` (facoltativo) |
+| variabile | `PROMO_ENABLED`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `PROMO_ADMIN_NAME`, `TIKTOK_REFRESH_TOKEN_SECRET`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES`, `PROMO_SUPERVISOR_FIRESTORE_PROJECT` (facoltativa) |
 
 Il service account ha bisogno di: lettura/scrittura Firestore (`roles/datastore.user`), e per TikTok
 `secretmanager.versions.access` + `secretmanager.versions.add` sul solo segreto del refresh token. Per i
@@ -532,7 +544,6 @@ Tutte le variabili sono in `.env.example` (commentate, senza valori). Le princip
 | `PROMO_APPROVAL_BOT_TOKEN`, `PROMO_ADMIN_CHAT_ID` | approvazione da Telegram (bot dedicato, segreto) |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN` | Content Posting API (segreti) |
 | `TIKTOK_REFRESH_TOKEN_SECRET` / `PROMO_TIKTOK_TOKEN_FILE` | dove salvare il refresh token ruotato |
-| `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID` | già esistenti nel gioco, per il report |
 | `GAME_REPO_PATH` | checkout del gioco |
 | `PROMO_STORE` | `firestore` (default) o `local` |
 | `PROMO_X_ENABLED` | X/Threads (non ancora implementato) |
@@ -576,7 +587,7 @@ Il Promo Studio non modifica il gioco. Quattro cose vanno però fatte lì, con u
 | M3 | publisher Telegram + `--dry-run` | fatto, testato con client finti; da provare sul canale vero |
 | M4 | publisher TikTok come bozza | implementato, testato con client finti; **da verificare** sulla documentazione e l'app TikTok |
 | M5 | `percent`, `ladder`, `journeyman` | fatto, in rotazione nelle bozze |
-| M6 | report settimanale | fatto; query HogQL da confermare sui dati reali |
+| M6 | report settimanale | fatto: solo contenuti e costi; le metriche di prodotto sono del supervisore (#8) |
 | M7 | workflow | fatto; servono segreti, variabili e Workload Identity |
 
 Test: `python -m pytest -q` (nessuna chiamata di rete; i test di rendering generano MP4 veri su percorsi

@@ -35,7 +35,7 @@ Documentazione completa: `docs/promo-studio.md`.
 | **1. Offline** | video in 5 formati e 3 lingue, bozze in coda, approvazione, dashboard, pubblicazione simulata, report | niente |
 | **2. Dati veri** | stesse cose con le sfide passate vere (percentuali reali, formato `percent`) | file di chiave Firestore del bot |
 | **3. Canale Telegram di prova** | un video pubblicato davvero su un canale di prova | un canale Telegram di prova + token del bot |
-| **4. Automatico (facoltativo)** | GitHub Actions, TikTok, report da PostHog | account Google Cloud, app TikTok, chiavi PostHog |
+| **4. Automatico (facoltativo)** | GitHub Actions, TikTok | account Google Cloud, app TikTok |
 
 Il Livello 1 è sufficiente per una demo completa dell'interfaccia. Fai i livelli in ordine e fermati
 dove la persona ti dice.
@@ -123,7 +123,7 @@ python -m promo doctor
 ffmpeg, archivio (file locale). Sono **normali** in demo questi `[WARN]`:
 - `Modalità offline`;
 - `Link tracciati … src_telegram_channel` (va sistemato nel gioco, non qui);
-- Telegram, TikTok, PostHog non configurati.
+- Telegram, TikTok non configurati.
 
 Se compare `[ERR ] Gioco: Repository del gioco`, `GAME_REPO_PATH` è sbagliato: controlla che
 `../guess_the_player_from_the_path/services/player_pool.py` esista.
@@ -199,8 +199,9 @@ finirebbe `failed` ("non configurati"). Non è pericoloso, ma sporca la demo.
 python -m promo report
 ```
 
-**Atteso:** `report: reports/promo-report-<data>.md`. Senza PostHog il file dice "⚠️ Dati incompleti"
-con il motivo: è corretto. Mostra comunque la struttura del report e le regole di spesa.
+**Atteso:** `report: reports/promo-report-<data>.md` con bozze, approvati, rifiutati, pubblicati e falliti
+della settimana per canale e lingua (dalla coda locale), i costi di `costs.json` e la riga che rimanda al
+supervisore per le metriche di prodotto. Non serve PostHog.
 
 Testo per un creator pagato (da copiare a mano, con la dichiarazione `#adv`):
 ```bash
@@ -321,14 +322,12 @@ proprietà": è la protezione voluta.
 
 ---
 
-## Livello 4 — Facoltativo: automatico, TikTok, PostHog
+## Livello 4 — Facoltativo: automatico, TikTok
 
 Richiede account e configurazioni che solo la persona può fare. L'agente può preparare la checklist,
 ma non deve inventare valori. Dettagli completi in `docs/promo-studio.md`, sezioni "Pubblicazione" e
 "Pianificazione".
 
-- **PostHog (report con numeri veri):** 👤 `POSTHOG_PERSONAL_API_KEY` e `POSTHOG_PROJECT_ID` (le stesse della
-  dashboard del gioco) nel `.env`, poi `python -m promo report`.
 - **TikTok (bozze nell'app):** 👤 app su developers.tiktok.com con scope `video.upload`, autorizzazione OAuth
   una volta per ottenere il refresh token; poi `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`,
   `TIKTOK_REFRESH_TOKEN` nel `.env`. Prima prova su **un** post con `publish --id <id> --now`. Verificare sulla

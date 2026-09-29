@@ -140,8 +140,6 @@ jobs:
       - name: Report settimanale
         if: steps.job.outputs.command == 'report'
         env:
-          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
-          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           PROMO_ADMIN_CHAT_ID: ${{ vars.PROMO_ADMIN_CHAT_ID }}
         run: python -m promo report --at-rome-hour "${{ steps.job.outputs.hours }}" ${{ vars.PROMO_ADMIN_CHAT_ID && '--notify' || '' }}

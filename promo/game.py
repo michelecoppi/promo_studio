@@ -2,7 +2,7 @@
 
 Il Promo Studio vive in un repository suo ma **riusa** il codice del gioco invece di
 riscriverlo (dataset, sfide passate, ordine e traduzione delle carriere, colori dei club,
-font, lettura di PostHog): e' tutto qui, dietro un'interfaccia piccola. Il resto del
+font, sorgenti di campagna): e' tutto qui, dietro un'interfaccia piccola. Il resto del
 pacchetto non importa mai `services.*` direttamente, per due motivi:
 
 - i test girano senza il repository del gioco e senza Firestore, con un `GameSource` finto;
@@ -68,8 +68,6 @@ class GameSource(Protocol):
     def text_font_path(self) -> Optional[str]: ...
 
     def campaign_sources(self) -> tuple: ...
-
-    def hogql(self, query: str) -> list: ...
 
     def firestore_db(self): ...
 
@@ -186,17 +184,6 @@ class GameRepo:
     def campaign_sources(self) -> tuple:
         from services import product_analytics
         return tuple(product_analytics.CAMPAIGN_SOURCES)
-
-    def hogql(self, query: str) -> list:
-        from services import product_analytics_query as paq
-        try:
-            return paq.run_hogql(query)
-        except paq.QueryError as e:
-            raise AnalyticsError(str(e)) from e
-
-
-class AnalyticsError(RuntimeError):
-    """PostHog non configurato o non raggiungibile."""
 
 
 _default: Optional[GameSource] = None
