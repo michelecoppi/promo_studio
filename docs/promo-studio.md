@@ -58,6 +58,8 @@ promo/
   plan.py          bozze quotidiane e pubblicazione
   publishers/      telegram.py, tiktok.py, x.py (stub)
   report.py        report settimanale
+  briefs.py        brief-import: brief del supervisore → bozza
+  supervisor_briefs.py  brief letti dal Firestore del supervisore, ✅ Usa / ❌ Scarta sul bot
   cli.py           python -m promo <comando>
 admin/             pagina Streamlit di approvazione
 ```
@@ -291,6 +293,72 @@ Il supervisore (gtp_orchestrator, M4) prepara ogni settimana dei brief; ognuno d
   michelecoppi/guess_the_player_from_the_path#218: il flag va acceso quando quel bot è in produzione.
 - La macchina a stati non cambia: la bozza nasce `draft` e l'approvazione resta umana.
 
+### Brief dal Firestore del supervisore (✅ Usa / ❌ Scarta)
+
+Senza file da scaricare: dall'issue #7 Promo legge i brief direttamente dal Firestore del supervisore
+(gtp_orchestrator, [issue #9](https://github.com/michelecoppi/gtp_orchestrator/issues/9)), **in sola
+lettura**, e li propone all'admin sul bot approvazioni. Si accende con `PROMO_SUPERVISOR_FIRESTORE_PROJECT`
+(il progetto del supervisore, `gtp-orchestrator`); vuota, la funzione è spenta e `brief-import` resta la
+via manuale.
+
+Il supervisore scrive `promo_briefs/{campaign_id}` nel **suo** progetto. Promo considera solo i documenti con
+`status: "proposed"`, `schema_version` 1 ed `expires_at` futuro; il campo `brief` è esattamente il JSON di
+`brief-import` e passa per la stessa validazione. Esempio completo, lo stesso file nei due repository:
+`tests/fixtures/supervisor_promo_brief.json`.
+
+Il giro, tutto idempotente:
+
+1. **08:37, `brief-apply`** (dopo `drafts`): i brief che l'admin ha scelto di usare e non ancora importati
+   diventano bozze con `briefs.import_brief`, le stesse regole di `brief-import`: picker anti-spoiler,
+   testi dei template, `brief_id` = `campaign_id`, stato `draft`. Poi `ask-approval` le manda all'admin
+   come tutte le altre.
+2. **08:37, `brief-ask`** (dopo `ask-approval`): ogni brief nuovo arriva all'admin come messaggio di testo
+   semplice con campagna, settimana, canale, lingua, formato, CTA, angolo e fatti, e i pulsanti
+   **✅ Usa** / **❌ Scarta**. Un brief già proposto (o deciso) non si ripropone.
+3. **Il pulsante** arriva allo stesso webhook dei post (`promo-approvals`), con i callback
+   `brief:use:<campaign_id>` e `brief:skip:<campaign_id>`: `approvals.handle_press` li riconosce dal
+   prefisso `brief:` e li passa a `supervisor_briefs.handle_press`. Contano solo i pulsanti dell'admin,
+   nella sua chat; la decisione si prende una volta sola (un secondo tocco risponde "Già deciso") e il
+   messaggio perde i pulsanti. Un brief usato diventa bozze al giro delle 08:37 successivo; uno scartato
+   non torna.
+
+La decisione si salva **in Promo**, nel Firestore del gioco, in `promo_brief_decisions/{campaign_id}`:
+
+| Campo | Contenuto |
+| --- | --- |
+| `id`, `campaign_id` | la campagna |
+| `status` | `asking` (invio in corso), `asked` (in attesa dell'admin), `send_failed` (si ritenta al giro dopo), `used`, `discarded` |
+| `brief`, `week`, `supervisor_expires_at` | il brief validato e i dati del supervisore al momento della proposta |
+| `asked_at`, `message_id` | quando e con quale messaggio Telegram è stato proposto |
+| `decided_by`, `decided_at` | chi ha premuto (`PROMO_ADMIN_NAME` o username Telegram) e quando |
+| `imported_at`, `imported_for`, `import_error` | quando è diventato bozze e per quale giorno, o perché no |
+
+Un documento rimasto `asking` (crash durante l'invio) non viene rimandato alla cieca: se il messaggio è
+arrivato, i suoi pulsanti funzionano comunque. Il supervisore legge questa collezione in sola lettura
+(collector Promo) e mostra l'esito dei brief nel suo brief quotidiano; non scrive mai qui, e Promo non
+scrive mai nel Firestore del supervisore. Il webhook non ha bisogno del Firestore del supervisore: il
+brief da usare è già copiato nella decisione.
+
+Prove senza effetti: `python -m promo brief-ask --dry-run` elenca i brief che verrebbero proposti (legge i
+due Firestore, non scrive e non manda messaggi); `python -m promo brief-apply --dry-run` genera i file delle
+bozze senza toccare la coda.
+
+**Messa in funzione (Michele), in quest'ordine:**
+
+1. merge della PR del supervisore (gtp_orchestrator#9): la review *Growth* comincia a scrivere `promo_briefs`;
+2. al service account di Promo (quello del secret `GCP_SERVICE_ACCOUNT`) `roles/datastore.viewer` sul
+   progetto del supervisore:
+   ```bash
+   gcloud projects add-iam-policy-binding gtp-orchestrator \
+     --member="serviceAccount:<SERVICE_ACCOUNT_DI_PROMO>" --role="roles/datastore.viewer" --condition=None
+   ```
+3. merge di questa funzione in Promo;
+4. nuovo deploy di `promo-approvals` (passo 3 di "Approvazione immediata"), perché il webhook conosca i
+   pulsanti `brief:`;
+5. solo dopo il deploy, la variabile del repository `PROMO_SUPERVISOR_FIRESTORE_PROJECT=gtp-orchestrator`.
+   Con il vecchio webhook un tocco su ✅ Usa / ❌ Scarta verrebbe preso per il pulsante di un post
+   sparito: il messaggio perderebbe i pulsanti e il brief resterebbe `asked`.
+
 ## Pubblicazione
 
 `python -m promo publish` prende i post `approved` (e i `failed` con meno di 3 tentativi) con
@@ -366,8 +434,9 @@ I lavori girano in `.github/workflows/promo.yml`; chi li avvia all'ora giusta è
 | ogni giorno 12:23 | `promo-publish` | `publish`: gli `approved` in scadenza |
 | venerdì 09:17 | `promo-report` | `report` (+ `--notify` se `PROMO_ADMIN_CHAT_ID` è impostata) |
 
-Con il bot di approvazione, `drafts` è seguito da `ask-approval` e `publish` è preceduto da
-`sync-approvals` (che con il [webhook](#approvazione-immediata-webhook-su-cloud-run) attivo non fa nulla).
+Con il bot di approvazione, `drafts` è seguito da `brief-apply`, `ask-approval` e `brief-ask` (brief del
+supervisore, solo con `PROMO_SUPERVISOR_FIRESTORE_PROJECT`), e `publish` è preceduto da `sync-approvals`
+(che con il [webhook](#approvazione-immediata-webhook-su-cloud-run) attivo non fa nulla).
 
 **Perché Cloud Scheduler.** I cron di GitHub Actions sono "best effort" e su questo repository non
 partono proprio. Cloud Scheduler parte all'ora esatta e conosce l'ora di Roma, ma non sa avviare un
@@ -421,10 +490,11 @@ segreti che servono. Da configurare nel repository:
 | --- | --- |
 | secret | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT` (Firestore + Secret Manager) |
 | secret | `BOT_TOKEN`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `POSTHOG_PERSONAL_API_KEY`, `PROMO_APPROVAL_BOT_TOKEN` (facoltativo) |
-| variabile | `PROMO_ENABLED`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `PROMO_ADMIN_NAME`, `POSTHOG_PROJECT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES` |
+| variabile | `PROMO_ENABLED`, `PROMO_TELEGRAM_CHANNEL_ID`, `PROMO_ADMIN_CHAT_ID`, `PROMO_ADMIN_NAME`, `POSTHOG_PROJECT_ID`, `TIKTOK_REFRESH_TOKEN_SECRET`, `PROMO_LANGUAGES`, `PROMO_TELEGRAM_LANGUAGES`, `PROMO_SUPERVISOR_FIRESTORE_PROJECT` (facoltativa) |
 
 Il service account ha bisogno di: lettura/scrittura Firestore (`roles/datastore.user`), e per TikTok
-`secretmanager.versions.access` + `secretmanager.versions.add` sul solo segreto del refresh token.
+`secretmanager.versions.access` + `secretmanager.versions.add` sul solo segreto del refresh token. Per i
+brief del supervisore anche `roles/datastore.viewer` sul progetto `gtp-orchestrator` (sola lettura).
 
 `workflow_dispatch` permette di lanciare a mano `drafts`, `publish`, `report` o `sync` (di default in `--dry-run`).
 
@@ -455,6 +525,7 @@ Tutte le variabili sono in `.env.example` (commentate, senza valori). Le princip
 | `PROMO_STORE` | `firestore` (default) o `local` |
 | `PROMO_X_ENABLED` | X/Threads (non ancora implementato) |
 | `PROMO_CAMPAIGN_LINKS` | link `src_<canale>-<campaign_id>` per le bozze da brief (default off: serve il supporto nel gioco) |
+| `PROMO_SUPERVISOR_FIRESTORE_PROJECT` | progetto del supervisore (`gtp-orchestrator`) da cui leggere i brief `promo_briefs`; vuota = funzione spenta |
 
 Segreti: mai nel repository, mai nei log. `Settings.__repr__` li oscura, `promo/log.py` toglie i valori
 noti, i token nelle URL della Bot API e i `Bearer`, e passa anche da `services/observability.py`.

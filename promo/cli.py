@@ -5,6 +5,8 @@ Comandi:
   brief         bozza di testo per un creator pagato, con #adv (da copiare a mano)
   drafts        genera le bozze del giorno in coda `promo_posts` (M2, M7)
   brief-import  bozza da un brief del supervisore (formato, lingua, canale, campaign_id)
+  brief-ask     manda all'admin i brief nuovi del supervisore (dal suo Firestore), con Usa / Scarta
+  brief-apply   trasforma in bozze i brief del supervisore che l'admin ha scelto di usare
   list          elenca i post in coda
   approve / reject / edit-caption   azioni dell'admin (M2)
   ask-approval  manda le bozze all'admin su Telegram, con i pulsanti Approva / Rifiuta
@@ -142,6 +144,51 @@ def cmd_brief_import(args, settings) -> int:
     return 0
 
 
+def _supervisor_off(settings) -> bool:
+    if settings.supervisor_firestore_project:
+        return False
+    print("PROMO_SUPERVISOR_FIRESTORE_PROJECT vuoto: brief del supervisore spenti")
+    return True
+
+
+def cmd_brief_ask(args, settings) -> int:
+    if not _rome_hour_ok(_hours(args.at_rome_hour)):
+        print("fuori dall'ora prevista (Europe/Rome): niente da fare")
+        return 0
+    if _supervisor_off(settings):
+        return 0
+    if not settings.enabled and not args.dry_run:
+        print("PROMO_ENABLED non attivo: nessun brief proposto (usa --dry-run per provare)")
+        return 0
+    from promo import supervisor_briefs
+
+    bot = None if args.dry_run else _approval_bot(settings)
+    decisions = supervisor_briefs.decisions_for(_store(settings))
+    for line in supervisor_briefs.ask(supervisor_briefs.build_source(settings), decisions, bot,
+                                      dry_run=args.dry_run):
+        print(line)
+    return 0
+
+
+def cmd_brief_apply(args, settings) -> int:
+    if not _rome_hour_ok(_hours(args.at_rome_hour)):
+        print("fuori dall'ora prevista (Europe/Rome): niente da fare")
+        return 0
+    if _supervisor_off(settings):
+        return 0
+    if not settings.enabled and not args.dry_run:
+        print("PROMO_ENABLED non attivo: nessuna bozza generata (usa --dry-run per provare)")
+        return 0
+    from promo import supervisor_briefs
+
+    game_source = _game(settings)
+    store = _store(settings)
+    for line in supervisor_briefs.apply_used(settings, game_source, store, _theme(game_source),
+                                             supervisor_briefs.decisions_for(store), dry_run=args.dry_run):
+        print(line)
+    return 0
+
+
 def cmd_list(args, settings) -> int:
     posts = _store(settings).list(status=args.status or None)
     for post in sorted(posts, key=lambda p: (p.get("created_at") or "", p["id"])):
@@ -231,9 +278,10 @@ def cmd_sync_approvals(args, settings) -> int:
     if not _rome_hour_ok(_hours(args.at_rome_hour)):
         print("fuori dall'ora prevista (Europe/Rome): niente da fare")
         return 0
-    from promo import approvals
+    from promo import approvals, supervisor_briefs
 
-    for line in approvals.sync(_store(settings), _approval_bot(settings), settings):
+    store = _store(settings)
+    for line in approvals.sync(store, _approval_bot(settings), settings, supervisor_briefs.decisions_for(store)):
         print(line)
     return 0
 
@@ -362,6 +410,16 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--day", help="giorno di pubblicazione (default: 'day' del brief, poi oggi)")
     p.add_argument("--dry-run", action="store_true", help="genera i file ma non scrive la coda")
     p.set_defaults(func=cmd_brief_import)
+
+    p = sub.add_parser("brief-ask", help="brief nuovi del supervisore all'admin, con Usa / Scarta")
+    p.add_argument("--dry-run", action="store_true", help="legge ed elenca, senza messaggi ne' scritture")
+    p.add_argument("--at-rome-hour", default="")
+    p.set_defaults(func=cmd_brief_ask)
+
+    p = sub.add_parser("brief-apply", help="bozze dai brief del supervisore scelti dall'admin")
+    p.add_argument("--dry-run", action="store_true", help="genera i file ma non scrive la coda")
+    p.add_argument("--at-rome-hour", default="")
+    p.set_defaults(func=cmd_brief_apply)
 
     p = sub.add_parser("list", help="elenca i post in coda")
     p.add_argument("--status", choices=STATUSES)
