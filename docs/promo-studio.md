@@ -238,8 +238,9 @@ gcloud run deploy promo-approvals --project $PROJECT --region europe-west1 --sou
   --set-env-vars PROMO_ADMIN_CHAT_ID=<chat id dell'admin> \
   --set-secrets PROMO_APPROVAL_BOT_TOKEN=promo-approval-bot-token:latest,PROMO_APPROVAL_WEBHOOK_SECRET=promo-approval-webhook-secret:latest
 
-# 4. collega il bot al servizio (con token e segreto nell'ambiente)
-export PROMO_APPROVAL_BOT_TOKEN=... PROMO_ADMIN_CHAT_ID=... \
+# 4. collega il bot al servizio (token e segreto letti da Secret Manager, mai scritti a mano)
+export PROMO_ADMIN_CHAT_ID=<chat id dell'admin> \
+  PROMO_APPROVAL_BOT_TOKEN=$(gcloud secrets versions access latest --secret promo-approval-bot-token --project $PROJECT) \
   PROMO_APPROVAL_WEBHOOK_SECRET=$(gcloud secrets versions access latest --secret promo-approval-webhook-secret --project $PROJECT)
 python -m promo approval-webhook --set "$(gcloud run services describe promo-approvals --project $PROJECT --region europe-west1 --format 'value(status.url)')"
 ```
