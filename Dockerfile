@@ -14,4 +14,6 @@ RUN useradd --system --no-create-home app
 USER app
 
 # Un solo processo basta: pochi pulsanti al giorno, e una decisione alla volta.
-CMD exec gunicorn --bind ":${PORT:-8080}" --workers 1 --threads 4 --timeout 60 "promo.approval_service:create_app()"
+# --no-control-socket: con gunicorn 26 il socket di controllo va nella home dell'utente, che qui non
+# esiste (useradd --no-create-home) e non serve su Cloud Run.
+CMD exec gunicorn --bind ":${PORT:-8080}" --no-control-socket --workers 1 --threads 4 --timeout 60 "promo.approval_service:create_app()"
