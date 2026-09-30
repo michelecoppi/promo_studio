@@ -14,7 +14,7 @@ segreto che Telegram rimanda in `X-Telegram-Bot-Api-Secret-Token` (impostato con
 Su `/dispatch?command=...` avvia anche i lavori programmati per conto di Cloud Scheduler
 (promo/dispatch.py): li' vale solo un token OIDC di Google del service account di Scheduler.
 
-    gunicorn --bind :$PORT "promo.approval_service:create_app()"
+    gunicorn --bind :$PORT --no-control-socket "promo.approval_service:create_app()"
 """
 import hmac
 import json
