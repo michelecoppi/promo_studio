@@ -2,7 +2,7 @@
 # dal suo repository: pip install -r "$GAME_REPO_PATH/requirements.txt" (vedi docs/promo-studio.md).
 # I pacchetti in comune con il gioco hanno un intervallo e non una versione fissa: nel workflow
 # vince la versione fissata dal gioco, cosi' un suo aggiornamento non blocca l'installazione.
-Pillow>=12.3.0,<13
+Pillow>=13.0.0,<14
 imageio-ffmpeg==0.6.0
 requests>=2.34.2,<3
 python-dotenv>=1.2.3,<2
